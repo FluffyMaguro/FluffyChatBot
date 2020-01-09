@@ -208,15 +208,18 @@ def pingsAndMessages():
                     print('user joined:', user)
 
             #other commands      
-
             if "@VeryFluffyBot" in line and not(console(line)):
                 sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'*little fluffy bot likes tuna*')
+                sendMessage(s,config['RESPONSES']['RESPONSE'])
 
-            if "!tuna" == first_word:
+            #general responses configurable in config.ini    
+            after_command = first_word.replace('!','') #strip of "!"
+
+            if after_command in config['RESPONSES'].keys(): 
                 sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'*munches* thunk you! ')
+                sendMessage(s,config['RESPONSES'][after_command])
 
+            #commands controlling mutators
             if "!stop" == first_word and user == CHANNEL: 
                 findingActivated = False
                 sendMessage(s,'/color ' + chatColor)
@@ -227,23 +230,7 @@ def pingsAndMessages():
                 findingActivated = True
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,'Find them all, got it! *sniffs*')
-
-            if "!website" == first_word or "!site" == first_word or "!blog" == first_word:
-                sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'www.maguro.one')
-
-            if "!twitter" == first_word:
-                sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'twitter.com/FluffyMaguro')
-
-            if "!mutators" == first_word:
-                sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'www.maguro.one/p/mutators.html')
-
-            if "!commands" == first_word:
-                sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'!website, !twitter, !mutators, !current & on [MM] maps: !join, !message, !mutator, !spawn, !resources')
-
+             
             if "!current" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if findingActivated == False or mutatorsFound == False:
