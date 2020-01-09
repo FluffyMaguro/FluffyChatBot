@@ -116,7 +116,7 @@ def pingsAndMessages():
     global findingActivated
     global postCurrent
     # global CommandNumber
-    GMActive = False 
+    GMActive = True 
     GMActiveFull = False 
     chatColor = 'green'
 
@@ -242,7 +242,7 @@ def pingsAndMessages():
 
             if "!commands" == first_word:
                 sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,'!website, !twitter, !mutators, !current, & on [MM] maps: !join, !message, !mutator, !spawn, !resources')
+                sendMessage(s,'!website, !twitter, !mutators, !current & on [MM] maps: !join, !message, !mutator, !spawn, !resources')
 
             if "!current" == first_word:
                 sendMessage(s,'/color ' + chatColor)
