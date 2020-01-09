@@ -7,7 +7,7 @@ Post on my site: https://www.maguro.one/2020/01/fluffy-chatbot.html
 * Calculates mutation difficulty score and equivalent Brutal+ difficulty and posts it into the chat
 * Game integration into my [MM] maps. You can affect the game with several supported commands (!join, !message, !spawn, !mutator, !resources).
 
-Mutator identification would need to be modified to work at different resolutions and screen aspect ratios. I added a lightweight version that contains configurable commands and responses to them, together with integration to [MM] maps. Image recognition requires packages that would push the compiled size to around ~300MB.
+Mutator identification would need to be modified to work at different resolutions and screen aspect ratios. I added a lightweight version that only lacks mutator identification as required packages would increase compiled size from ~7MB to ~300MB.
 
 # How to use the lightweight bot
 
