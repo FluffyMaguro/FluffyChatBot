@@ -120,6 +120,7 @@ def pingsAndMessages():
     GMActive = True 
     GMActiveFull = False 
     chatColor = 'green'
+    GreetedUsers = []
 
     while True:
         try:
@@ -221,12 +222,12 @@ def pingsAndMessages():
                 sendMessage(s,config['RESPONSES'][after_command])
 
 
-            if user in config['USERRESPONSES'].keys():
+            if user in config['GREETINGS'].keys() and not(user in GreetedUsers):
                 try:
-                    if random.random() < 0.05:
-                        sendMessage(s,'/color ' + chatColor)
-                        possibleresponses = list(config['USERRESPONSES'][user].split("/ ")) 
-                        sendMessage(s,random.choice(possibleresponses))
+                    GreetedUsers.append(user)
+                    sendMessage(s,'/color ' + chatColor)
+                    possibleresponses = list(config['GREETINGS'][user].split("/ ")) 
+                    sendMessage(s,random.choice(possibleresponses))
                 except:
                     pass
 
