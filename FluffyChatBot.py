@@ -9,6 +9,7 @@ import os
 import pandas as pd
 import xml.etree.ElementTree as ET
 import configparser
+import random
 
 ### Set up is loaded from a config.ini file
 config = configparser.ConfigParser()
@@ -17,9 +18,9 @@ config.read('config.ini')
 local_test = False #for local testing, different bank file & no mutator log saving
 
 if local_test == True:
-	BANKFILE = config['CONFIG']['LOCALBANKFILE']
+    BANKFILE = config['CONFIG']['LOCALBANKFILE']
 else:
-	BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
+    BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
 
 CHANNEL = config['CONFIG']['CHANNEL'] #channel name where bot operates (all lowercase)
 NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
@@ -31,7 +32,7 @@ PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
 findingActivated = True
 postCurrent = False
 mutatorsFound = False
-CommandNumber = np.random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
+CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
 MutatorList = ['walking infested', 'outbreak', 'darkness', 'time warp', 'speed freaks', 'mag-nificent', 'mineral shields', 'barrier', 'avenger', 'evasive maneuvers', 'scorched earth', 'lava burst', 'self destruction', 'aggressive deployment', 'alien incubation', 'laser drill', 'long range', 'shortsighted', 'mutually assured destruction', 'we move unseen', 'slim pickings', 'concussive attacks', 'just die!', 'temporal field', 'void rifts', 'twister', 'orbital strike', 'purifier beam', 'blizzard', 'fear', 'photon overload', 'minesweeper', 'void reanimators', 'going nuclear', 'life leech', 'power overwhelming', 'micro transactions', 'missile command', 'vertigo', 'polarity', 'transmutation', 'afraid of the dark', 'trick or treat', 'turkey shoot', 'sharing is caring', 'diffusion', 'black death', 'eminent domain', 'gift exchange', 'naughty list', 'extreme caution', 'heroes from the storm', 'inspiration', 'hardened will', 'fireworks', 'lucky envelopes', 'double-edged', 'fatal attraction', 'propagators', 'moment of silence', 'kill bots', 'boom bots', 'the mist', 'the usual suspects', 'supreme commander', 'shapeshifters', 'rip field generators', 'repulsive field', 'old times', 'nuclear mines', 'necronomicon', 'mothership', 'matryoshka', 'level playing field', 'infestation station', 'i collect, i change', 'great wall', 'endurance', 'dark mirror', 'bloodlust']
 
 def openSocket():
@@ -90,26 +91,26 @@ def sendMessage(s, message):
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
 
 
-def sendGameMessage(type, message):
+def sendGameMessage(type, message, user):
     global CommandNumber
     try:
-	    tree = ET.parse(BANKFILE) #reload to account for new changes
-	    root = tree.getroot()
+        tree = ET.parse(BANKFILE) #reload to account for new changes
+        root = tree.getroot()
 
-	    if type == 'mutator':
-	        message = message.lower()
-	        if not(message in MutatorList):     
-	            print('ERROR, mutator not in the list')
-	            return '{incorrect mutator name}'
-	    
-	    for child in root: 
-	        if child.attrib['name'] == 'Commands':
-	            CommandNumber += 1
-	            child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) + '"><Value string="'+ message +'" /></Key>')))
-	            tree.write(BANKFILE)
-	            return '{request sent}'
+        if type == 'mutator':
+            message = message.lower()
+            if not(message in MutatorList):     
+                print('ERROR, mutator not in the list')
+                return '{incorrect mutator name}'
+        
+        for child in root: 
+            if child.attrib['name'] == 'Commands':
+                CommandNumber += 1
+                child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
+                tree.write(BANKFILE)
+                return '{request sent}'
     except:
-    	print('ERROR – bank not loaded properly, message not sent')
+        print('ERROR – bank not loaded properly, message not sent')
          
 
 def pingsAndMessages():
@@ -143,7 +144,7 @@ def pingsAndMessages():
             #Commands
             user = getUser(line) 
             message = getMessage(line)
-            first_word = message.split()[0]
+            first_word = message.split()[0].lower()
             try:
                 following_words = message.split(' ',1)[1].rstrip() #rstrip strips the end (spaces, breaks) from the string
             except:
@@ -173,14 +174,14 @@ def pingsAndMessages():
                     sendMessage(s,'{Game integration inactive}')
                 else:
                     print('message sent:',user,following_words)
-                    sendGameMessage('message', user +': ' + following_words)
+                    sendGameMessage('message', user +': ' + following_words,user)
 
             if "!mutator" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('mutator', following_words) 
+                    response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
 
             if "!spawn" == first_word:
@@ -188,7 +189,7 @@ def pingsAndMessages():
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('spawn', following_words) 
+                    response = sendGameMessage('spawn', following_words,user) 
                     print('unit spawned:',following_words)
 
             if "!resources" == first_word:
@@ -196,7 +197,7 @@ def pingsAndMessages():
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('resources', following_words) 
+                    response = sendGameMessage('resources', following_words,user) 
                     print('resources given:',following_words)
 
             if "!join" == first_word:
@@ -204,7 +205,7 @@ def pingsAndMessages():
                 if GMActive == False:
                     sendMessage(s,'{Game integration inactive}')
                 else:
-                    response = sendGameMessage('join', user + ' %' + following_words) 
+                    response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
 
             #other commands      
@@ -218,6 +219,16 @@ def pingsAndMessages():
             if after_command in config['RESPONSES'].keys(): 
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES'][after_command])
+
+
+            if user in config['USERRESPONSES'].keys():
+                try:
+                    if random.random() < 0.05:
+                        sendMessage(s,'/color ' + chatColor)
+                        possibleresponses = list(config['USERRESPONSES'][user].split("/ ")) 
+                        sendMessage(s,random.choice(possibleresponses))
+                except:
+                    pass
 
             #commands controlling mutators
             if "!stop" == first_word and user == CHANNEL: 
@@ -334,7 +345,7 @@ def FindMutators():
             if not(MutatorsNotChanged): #sort & save only if mutations changed, and not when using !current command
                 SortedMutatorDF = MutatorDF.sort_values(by=['Y','X'], ascending=True).reset_index()
                 if local_test == False:
-                	MutatorDF['Mutator'].to_csv('MutatorLog.csv', mode='a', header=False, sep ='\t')
+                    MutatorDF['Mutator'].to_csv('MutatorLog.csv', mode='a', header=False, sep ='\t')
 
             currentColor += 1
             if currentColor >= len(colors): #loop back if max

@@ -1,6 +1,12 @@
 import socket
 import string
 import time
+import threading
+# import cv2
+# import numpy as np
+# import pyautogui
+import os
+# import pandas as pd
 import xml.etree.ElementTree as ET
 import configparser
 import random
@@ -12,9 +18,9 @@ config.read('config.ini')
 local_test = False #for local testing, different bank file & no mutator log saving
 
 if local_test == True:
-	BANKFILE = config['CONFIG']['LOCALBANKFILE']
+    BANKFILE = config['CONFIG']['LOCALBANKFILE']
 else:
-	BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
+    BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
 
 CHANNEL = config['CONFIG']['CHANNEL'] #channel name where bot operates (all lowercase)
 NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
@@ -23,9 +29,11 @@ HOST = config['CONFIG']['HOST'] #for twitch: "irc.twitch.tv"
 PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
 
 ### Init some variables
+# findingActivated = True
+# postCurrent = False
+# mutatorsFound = False
 CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
 MutatorList = ['walking infested', 'outbreak', 'darkness', 'time warp', 'speed freaks', 'mag-nificent', 'mineral shields', 'barrier', 'avenger', 'evasive maneuvers', 'scorched earth', 'lava burst', 'self destruction', 'aggressive deployment', 'alien incubation', 'laser drill', 'long range', 'shortsighted', 'mutually assured destruction', 'we move unseen', 'slim pickings', 'concussive attacks', 'just die!', 'temporal field', 'void rifts', 'twister', 'orbital strike', 'purifier beam', 'blizzard', 'fear', 'photon overload', 'minesweeper', 'void reanimators', 'going nuclear', 'life leech', 'power overwhelming', 'micro transactions', 'missile command', 'vertigo', 'polarity', 'transmutation', 'afraid of the dark', 'trick or treat', 'turkey shoot', 'sharing is caring', 'diffusion', 'black death', 'eminent domain', 'gift exchange', 'naughty list', 'extreme caution', 'heroes from the storm', 'inspiration', 'hardened will', 'fireworks', 'lucky envelopes', 'double-edged', 'fatal attraction', 'propagators', 'moment of silence', 'kill bots', 'boom bots', 'the mist', 'the usual suspects', 'supreme commander', 'shapeshifters', 'rip field generators', 'repulsive field', 'old times', 'nuclear mines', 'necronomicon', 'mothership', 'matryoshka', 'level playing field', 'infestation station', 'i collect, i change', 'great wall', 'endurance', 'dark mirror', 'bloodlust']
-
 
 def openSocket():
     s = socket.socket()
@@ -83,36 +91,36 @@ def sendMessage(s, message):
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
 
 
-def sendGameMessage(type, message):
+def sendGameMessage(type, message, user):
     global CommandNumber
     try:
-	    tree = ET.parse(BANKFILE) #reload to account for new changes
-	    root = tree.getroot()
+        tree = ET.parse(BANKFILE) #reload to account for new changes
+        root = tree.getroot()
 
-	    if type == 'mutator':
-	        message = message.lower()
-	        if not(message in MutatorList):     
-	            print('ERROR, mutator not in the list')
-	            return '{incorrect mutator name}'
-	    
-	    for child in root: 
-	        if child.attrib['name'] == 'Commands':
-	            CommandNumber += 1
-	            child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) + '"><Value string="'+ message +'" /></Key>')))
-	            tree.write(BANKFILE)
-	            return '{request sent}'
+        if type == 'mutator':
+            message = message.lower()
+            if not(message in MutatorList):     
+                print('ERROR, mutator not in the list')
+                return '{incorrect mutator name}'
+        
+        for child in root: 
+            if child.attrib['name'] == 'Commands':
+                CommandNumber += 1
+                child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
+                tree.write(BANKFILE)
+                return '{request sent}'
     except:
-    	print('ERROR – bank not loaded properly, message not sent')
+        print('ERROR – bank not loaded properly, message not sent')
          
 
 def pingsAndMessages():
-    global findingActivated
-    global postCurrent
+    # global findingActivated
+    # global postCurrent
     # global CommandNumber
     GMActive = True 
     GMActiveFull = False 
     chatColor = 'green'
-    
+
     while True:
         try:
             readbuffer = s.recv(1024)
@@ -136,7 +144,7 @@ def pingsAndMessages():
             #Commands
             user = getUser(line) 
             message = getMessage(line)
-            first_word = message.split()[0]
+            first_word = message.split()[0].lower()
             try:
                 following_words = message.split(' ',1)[1].rstrip() #rstrip strips the end (spaces, breaks) from the string
             except:
@@ -166,14 +174,14 @@ def pingsAndMessages():
                     sendMessage(s,'{Game integration inactive}')
                 else:
                     print('message sent:',user,following_words)
-                    sendGameMessage('message', user +': ' + following_words)
+                    sendGameMessage('message', user +': ' + following_words,user)
 
             if "!mutator" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('mutator', following_words) 
+                    response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
 
             if "!spawn" == first_word:
@@ -181,7 +189,7 @@ def pingsAndMessages():
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('spawn', following_words) 
+                    response = sendGameMessage('spawn', following_words,user) 
                     print('unit spawned:',following_words)
 
             if "!resources" == first_word:
@@ -189,7 +197,7 @@ def pingsAndMessages():
                 if GMActiveFull == False:
                     sendMessage(s,'{Full game integration inactive}')
                 else:
-                    response = sendGameMessage('resources', following_words) 
+                    response = sendGameMessage('resources', following_words,user) 
                     print('resources given:',following_words)
 
             if "!join" == first_word:
@@ -197,7 +205,7 @@ def pingsAndMessages():
                 if GMActive == False:
                     sendMessage(s,'{Game integration inactive}')
                 else:
-                    response = sendGameMessage('join', user + ' %' + following_words) 
+                    response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
 
             #other commands      
@@ -205,14 +213,157 @@ def pingsAndMessages():
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES']['RESPONSE'])
 
+            #general responses configurable in config.ini    
             after_command = first_word.replace('!','') #strip of "!"
 
             if after_command in config['RESPONSES'].keys(): 
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES'][after_command])
 
+
+            if user in config['USERRESPONSES'].keys():
+                try:
+                    if random.random() < 0.05:
+                        sendMessage(s,'/color ' + chatColor)
+                        possibleresponses = list(config['USERRESPONSES'][user].split("/ ")) 
+                        sendMessage(s,random.choice(possibleresponses))
+                except:
+                    pass
+
+            #commands controlling mutators
+            # if "!stop" == first_word and user == CHANNEL: 
+            #     findingActivated = False
+            #     sendMessage(s,'/color ' + chatColor)
+            #     sendMessage(s,'No catching little mutator things, fine! *yawns*')
+
+            # if "!start" == first_word and user == CHANNEL:
+            #     postCurrent = False 
+            #     findingActivated = True
+            #     sendMessage(s,'/color ' + chatColor)
+            #     sendMessage(s,'Find them all, got it! *sniffs*')
+             
+            # if "!current" == first_word:
+            #     sendMessage(s,'/color ' + chatColor)
+            #     if findingActivated == False or mutatorsFound == False:
+            #         sendMessage(s,'cannot do that right now')
+            #     else:
+            #         sendMessage(s,'let me see...')
+            #         postCurrent = True
+
         time.sleep(1)
 
+# def getBrutalPlus (diff):
+#         level = 'undefined'
+#         if 0 < diff < 4:
+#             level = 'Too easy for Brutal+'
+#         if 4 <= diff <= 6:
+#             level = 'Brutal+1'
+#         if 7 <= diff <= 8:
+#             level = 'Brutal+2'
+#         if 9 <= diff <= 10:
+#             level = 'Brutal+3'
+#         if 11 <= diff <= 12:
+#             level = 'Brutal+4'
+#         if 13 <= diff <= 14:
+#             level = 'Brutal+4.5'
+#         if 15 <= diff <= 16:
+#             level = 'Brutal+5'
+#         if 17 <= diff <= 18:
+#             level = 'Brutal+5.5'
+#         if 19 <= diff <= 20:
+#             level = 'Brutal+6'
+#         if  diff > 20:
+#             level = 'Harder than any Brutal+'
+#         return level
+
+
+# def FindMutators():
+#     global postCurrent
+#     global mutatorsFound
+
+#     MutatorDescriptions = {"Walking Infested": "Enemy units spawn Infested Terran upon death in numbers according to the unit's life.", "Outbreak": "Enemy Infested Terrans spawn continuously around the map.", "Darkness": "Previously explored areas remain blacked out on the minimap while outside of player vision.", "Time Warp": "Enemy Time Warps are periodically deployed throughout the map.", "Speed Freaks": "Enemy units have increased movement speed.", "Mag-nificent": "Mag Mines are deployed throughout the map at the start of the mission.", "Mineral Shields": "Mineral clusters at player bases are periodically encased in a shield which must be destroyed for gathering to continue.", "Barrier": "Enemy units and structures gain a temporary shield upon the first time they take damage.", "Avenger": "Enemy units gain increased attack speed, movement speed, armor, life, and life-regeneration when nearby enemy units die.", "Evasive Maneuvers": "Enemy units teleport a short distance away upon taking damage.", "Scorched Earth": "Enemy units set the terrain on fire upon death.", "Lava Burst": "Lava periodically bursts from the ground at random locations and deals damage to player air and ground units.", "Self Destruction": "Enemy units explode and deal damage to nearby player units upon death.", "Aggressive Deployment": "Additional enemy units are periodically deployed onto the battlefield.", "Alien Incubation": "All enemy units spawn Broodlings upon death.", "Laser Drill": "An enemy Laser Drill constantly attacks player units within enemy vision.", "Long Range": "Enemy units and structures have increased weapon and vision range.", "Shortsighted": "Player units and structures have reduced vision range.", "Mutually Assured Destruction": "Enemy Hybrid units detonate a Nuke upon death.", "We Move Unseen": "All enemy units are permanently cloaked.", "Slim Pickings": "Player worker units gather resources at a reduced rate, but resource pickups spawn throughout the map.", "Concussive Attacks": "Player units are slowed by all enemy attacks.", "Just Die!": "Enemy units are automatically revived upon death.", "Temporal Field": "Enemy Temporal Fields are periodically deployed throughout the map.", "Void Rifts": "Void Rifts periodically appear in random locations and spawn enemy units until destroyed.", "Twister": "Tornadoes move across the map, damaging and knocking back player units in their path.", "Orbital Strike": "Enemy Orbital Strikes are periodically fired throughout the map.", "Purifier Beam": "An enemy Purifier Beam moves across the map toward nearby player units.", "Blizzard": "Storm clouds move across the map, damaging and freezing player units in their path.", "Fear": "Player units will occasionally stop attacking and run around in fear upon taking damage.", "Photon Overload": "All enemy structures attack nearby hostile units.", "Minesweeper": "Groups of Widow Mines and Spider Mines are buried throughout the battlefield.", "Void Reanimators": "Void Reanimators wander the battlefield, bringing your enemies back to life.", "Going Nuclear": "Nukes are launched at random throughout the map.", "Life Leech": "Enemy units and structures steal life or shields whenever they do damage.", "Power Overwhelming": "All enemy units have energy and use random abilities.", "Micro Transactions": "Giving commands to your units costs resources based on the unit's cost.", "Missile Command": "Endless missile bombardments target your structures and must be shot down throughout the mission.", "Vertigo": "Your camera randomly changes positions.", "Polarity": "Each enemy unit is immune to either your units or your ally's units.", "Transmutation": "Enemy units have a chance to transform into more powerful units whenever they deal damage.", "Afraid of the Dark": "Vision provided by all sources is extremely limited except when in view of your camera.", "Trick or Treat": "Civilians visit your Candy Bowl looking for treats, which are generated by spending minerals. If no treats are available, the civilians transform into random enemy units.", "Turkey Shoot": "Supply can only be generated by killing turkeys that wander throughout the map. Doing so may anger the turkeys that remain.", "Sharing Is Caring": "Supply is shared between you and your partner, and units from both armies contribute to your combined supply cap.", "Diffusion": "Damage dealt to enemies is split evenly across all nearby units, including your own.", "Black Death": "Some enemy units carry a plague that deals damage over time and spreads to other nearby units. The plague spreads to your units when the enemy unit is killed.", "Eminent Domain": "Enemies gain control of your structures after destroying them.", "Gift Exchange": "Gifts are periodically deployed around the map.  If you don't claim them, Amon will!", "Naughty List": "Player units and structures take increased damage for each enemy they've killed.", "Extreme Caution": "Your units will not obey any command placed in areas they cannot see.", "Heroes from the Storm": "Attack waves will be joined by heroes of increasing power.", "Inspiration": "Enemy Heroic units increase the attack speed and armor of all enemies within a small range. ", "Hardened Will": "Enemy Heroic units reduce all incoming damage to a maximum of 10 when any non-heroic enemy unit is near them.", "Fireworks": "Enemies launch a dazzling fireworks display upon death, dealing damage to your nearby units.", "Lucky Envelopes": "Festive envelopes containing resource pickups are dropped at random throughout the map.", "Double-Edged": "Your units also receive all the damage they deal, but they are healed over time.", "Fatal Attraction": "When enemy units and structures die, any of your nearby units are pulled to their location.", "Propagators": "Shapeless lifeforms creep toward your base, transforming all of the units and structures they touch into copies of themselves.", "Moment of Silence": "When a Heroic enemy dies, all player units around it will reflect on their transgressions, leaving them unable to attack or use abilities.", "Kill Bots": "Offensive robots of a mysterious origin have been unleashed on the Koprulu sector, intent on destruction. Through cunning engineering, they are invincible until their pre-programmed kill counter has been filled. After that occurs, they will shut down. But can you survive for that long?", "Boom Bots": "Uncaring automatons carry a nuclear payload toward your base. One player must discern the disarming sequence and the other player must enter it.", "The Mist": "Mists roll over battlefield while unseen terrors lurk inside. Desperate warriors will fall and rise again.", "The Usual Suspects": "Enemy attacks will be led by dark reflections of Heroes in the service of Amon", "Supreme Commander": "Massive units gain 25% life and are bigger, the rest of units have 25% less life and are smaller. All units gain +2 weapon range.", "Shapeshifters": "Shapeshifters spawn with enemy attacks and in enemy bases. These creatures can transform into any unit of yours.", "Rip Field Generators": "Rip-Field Generators are deployed throughout the map. They will burn any unit that comes into their range.", "Repulsive Field": "Enemy attacks will push your units away.", "Old Times": "We are traveling back in time. Unit selection is limited to 12 units. There is no worker auto-mine, no smart cast, no multiple building select, etc.", "Nuclear Mines": "Nuclear Mines have been placed around the battlefield.", "Necronomicon": "Killed player units will rise again at enemy bases.", "Mothership": "Enemy Mothership roams the map and attacks player units.", "Matryoshka": "Enemy units will spawn mini-self upon death. This can trigger several times for larger units.", "Level Playing Field": "All weapons and abilities can hit both air and ground targets.", "Infestation Station": "Damaging any structure can cause infestation.", "I Collect, I Change": "When a non-heroic unit kills a hostile unit, it becomes the unit it killed. Units can only evolve into more expensive units.", "Great Wall": "Enemy begins massive effort to construct defensive structures around the battlefield.", "Endurance": "Player and enemy units and structures have 3x more health and shields.", "Dark Mirror": "Enemy attack waves will contain player units.", "Bloodlust": "Enemy units gain increased attack speed, movement speed, acceleration and damage reduction as their health gets lower."}
+#     MutatorDiffScore = {"Walking Infested": "2", "Outbreak": "3", "Darkness": "2", "Time Warp": "1", "Speed Freaks": "2", "Mag-nificent": "4", "Mineral Shields": "2", "Barrier": "2", "Avenger": "5", "Evasive Maneuvers": "1", "Scorched Earth": "2", "Lava Burst": "3", "Self Destruction": "3", "Aggressive Deployment": "3", "Alien Incubation": "2", "Laser Drill": "2", "Long Range": "2", "Shortsighted": "1", "Mutually Assured Destruction": "5", "We Move Unseen": "3", "Slim Pickings": "5", "Concussive Attacks": "1", "Just Die!": "7", "Temporal Field": "1", "Void Rifts": "10", "Twister": "2", "Orbital Strike": "1", "Purifier Beam": "2", "Blizzard": "4", "Fear": "3", "Photon Overload": "1", "Minesweeper": "6", "Void Reanimators": "5", "Going Nuclear": "3", "Life Leech": "1", "Power Overwhelming": "5", "Micro Transactions": "5", "Missile Command": "3", "Vertigo": "0", "Polarity": "7", "Transmutation": "7", "Afraid of the Dark": "0", "Trick or Treat": "0", "Turkey Shoot": "0", "Sharing Is Caring": "0", "Diffusion": "3", "Black Death": "7", "Eminent Domain": "1", "Gift Exchange": "0", "Naughty List": "0", "Extreme Caution": "0", "Heroes from the Storm": "10", "Inspiration": "2", "Hardened Will": "2", "Fireworks": "0", "Lucky Envelopes": "0", "Double-Edged": "3", "Fatal Attraction": "3", "Propagators": "8", "Moment of Silence": "2", "Kill Bots": "6", "Boom Bots": "0", "The Mist": "3", "The Usual Suspects": "5", "Supreme Commander": "0", "Shapeshifters": "4", "Rip Field Generators": "3", "Repulsive Field": "1", "Old Times": "0", "Nuclear Mines": "2", "Necronomicon": "1", "Mothership": "2", "Matryoshka": "2", "Level Playing Field": "0", "Infestation Station": "4", "I Collect, I Change": "-2", "Great Wall": "5", "Endurance": "3", "Dark Mirror": "0", "Bloodlust": "1"}
+
+#     PATH = 'Mutator Icons'
+#     INTERVAL = 3 #seconds
+#     PreviousMutators = []  
+#     colors = ['Red', 'Blue']
+#     currentColor = 0  
+
+#     while True:
+
+#         if findingActivated == False: #skip if the function is deactivated via chat command (temporarily)
+#             time.sleep(INTERVAL)
+#             print('//mutator find disabled')
+#             continue
+
+#         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
+#         NewMutators = []
+#         a = 0
+#         FewMutators = False #these prevent doing more work than necessary, if it's either small or big, the checks only those later
+#         ManyMutators = False
+#         entries = os.scandir(PATH) #for some reason this needs to be rescaned
+        
+#         img = pyautogui.screenshot(region=(1810,380, 110, 480))
+#         img_rgb = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+#         for entry in entries:
+#             if entry.is_file() and entry.name.endswith('.png'):
+
+#                 if len(entry.name.split('_')) > 1 and FewMutators: #tells whether to load small or not
+#                     continue
+#                 if len(entry.name.split('_')) == 1 and ManyMutators:
+#                     continue
+
+#                 template = cv2.imread(PATH +'/'+ entry.name,1)
+
+#                 res = cv2.matchTemplate(img_rgb,template,cv2.TM_CCOEFF_NORMED)
+#                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+#                 threshold = 0.9
+#                 loc = np.where( res >= threshold) #array with values where res > threshold
+                        
+#                 if np.count_nonzero(loc)>0:
+#                     mutatorsFound = True
+#                     if ManyMutators == False and FewMutators == False:
+#                         if len(entry.name.split('_')) > 1: #was it a small of big one?
+#                             ManyMutators = True
+#                         else:
+#                             FewMutators = True
+
+#                     NewMutators.append(entry.name.split('.')[0]) #add to pd frames to sort later by position (x,y)
+#                     MutatorDF.loc[a] = [entry.name.split('.')[0].split('_')[0]]+[MutatorDescriptions[entry.name.split('.')[0].split('_')[0]]]+[round(max_loc[1]/10,0)]+[round(max_loc[0]/10,0)]+[round(max_val,3)]
+#                     a += 1
+
+#         MutatorsNotChanged = len(set(PreviousMutators) & set(NewMutators)) >= len(NewMutators)  
+
+#         if MutatorsNotChanged and postCurrent == False:
+#             pass
+#         else:
+#             postCurrent = False
+#             PreviousMutators = NewMutators
+            
+#             if not(MutatorsNotChanged): #sort & save only if mutations changed, and not when using !current command
+#                 SortedMutatorDF = MutatorDF.sort_values(by=['Y','X'], ascending=True).reset_index()
+#                 if local_test == False:
+#                     MutatorDF['Mutator'].to_csv('MutatorLog.csv', mode='a', header=False, sep ='\t')
+
+#             currentColor += 1
+#             if currentColor >= len(colors): #loop back if max
+#                 currentColor = 0               
+
+#             MutationDifficulty = 0
+#             Message = '/color ' + colors[currentColor]
+#             sendMessage(s,Message)
+
+#             for index, row in SortedMutatorDF.iterrows():
+#                 print(index, row['Mutator'],' ', row['Max_val'])
+#                 Message = row['Mutator'] + ' ('+ MutatorDiffScore[row['Mutator']] +') - ' + row['Description'] #'/me : '
+#                 sendMessage(s,Message)
+#                 MutationDifficulty += int(MutatorDiffScore[row['Mutator']])
+
+#             sendMessage(s,'Total difficulty score: ' + str(MutationDifficulty) +' ('+getBrutalPlus(MutationDifficulty)+')')
+
+#         time.sleep(INTERVAL)
 
 #start the bot
 if (__name__ == "__main__"):
