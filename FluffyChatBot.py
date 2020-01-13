@@ -332,7 +332,7 @@ def FindMutators():
                             FewMutators = True
 
                     NewMutators.append(entry.name.split('.')[0]) #add to pd frames to sort later by position (x,y)
-                    MutatorDF.loc[a] = [entry.name.split('.')[0].split('_')[0]]+[MutatorDescriptions[entry.name.split('.')[0].split('_')[0]]]+[round(max_loc[1]/10,0)]+[round(max_loc[0]/10,0)]+[round(max_val,3)]
+                    MutatorDF.loc[a] = [entry.name.split('.')[0].split('_')[0]]+[MutatorDescriptions.get(entry.name.split('.')[0].split('_')[0])]+[round(max_loc[1]/10,0)]+[round(max_loc[0]/10,0)]+[round(max_val,3)]
                     a += 1
 
         MutatorsNotChanged = len(set(PreviousMutators) & set(NewMutators)) >= len(NewMutators)  
@@ -358,9 +358,9 @@ def FindMutators():
 
             for index, row in SortedMutatorDF.iterrows():
                 print(index, row['Mutator'],' ', row['Max_val'])
-                Message = row['Mutator'] + ' ('+ MutatorDiffScore[row['Mutator']] +') - ' + row['Description'] #'/me : '
+                Message = row['Mutator'] + ' ('+ MutatorDiffScore.get(row['Mutator']) +') - ' + row['Description'] #'/me : '
                 sendMessage(s,Message)
-                MutationDifficulty += int(MutatorDiffScore[row['Mutator']])
+                MutationDifficulty += int(MutatorDiffScore.get(row['Mutator']))
 
             sendMessage(s,'Total difficulty score: ' + str(MutationDifficulty) +' ('+getBrutalPlus(MutationDifficulty)+')')
 
