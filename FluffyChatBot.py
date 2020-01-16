@@ -10,6 +10,7 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 import configparser
 import random
+import datetime
 
 ### Set up is loaded from a config.ini file
 config = configparser.ConfigParser()
@@ -113,6 +114,11 @@ def sendGameMessage(type, message, user):
         print('ERROR – bank not loaded properly, message not sent')
          
 
+def saveMessage(user,message):
+    with open('ChatLog.txt', 'a') as file:
+        time_now = str(datetime.datetime.now())[:-7]
+        file.write('\n({}) {}: \t{}'.format(time_now,user,message.rstrip()))
+
 def pingsAndMessages():
     global findingActivated
     global postCurrent
@@ -146,6 +152,7 @@ def pingsAndMessages():
             user = getUser(line) 
             message = getMessage(line)
             first_word = message.split()[0].lower()
+            saveMessage(user,message)
             try:
                 following_words = message.split(' ',1)[1].rstrip() #rstrip strips the end (spaces, breaks) from the string
             except:
