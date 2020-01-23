@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 import configparser
 import random
 import datetime
+from ReplayAnalysis import analyse_replay
 
 ### Set up is loaded from a config.ini file
 config = configparser.ConfigParser()
@@ -28,6 +29,11 @@ NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
 PASS = config['CONFIG']['PASS'] #twitch API you get for your bot: "oauth:r7x5n................."
 HOST = config['CONFIG']['HOST'] #for twitch: "irc.twitch.tv"
 PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
+PLAYERNAME = config['CONFIG']['PLAYERNAME']
+try:
+    RESIZECOEF = float(config['CONFIG']['RESIZECOEF'])
+except:
+    RESIZECOEF = 1
 
 ### Init some variables
 findingActivated = True
@@ -36,6 +42,7 @@ mutatorsFound = False
 CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
 MutatorList = ['walking infested', 'outbreak', 'darkness', 'time warp', 'speed freaks', 'mag-nificent', 'mineral shields', 'barrier', 'avenger', 'evasive maneuvers', 'scorched earth', 'lava burst', 'self destruction', 'aggressive deployment', 'alien incubation', 'laser drill', 'long range', 'shortsighted', 'mutually assured destruction', 'we move unseen', 'slim pickings', 'concussive attacks', 'just die!', 'temporal field', 'void rifts', 'twister', 'orbital strike', 'purifier beam', 'blizzard', 'fear', 'photon overload', 'minesweeper', 'void reanimators', 'going nuclear', 'life leech', 'power overwhelming', 'micro transactions', 'missile command', 'vertigo', 'polarity', 'transmutation', 'afraid of the dark', 'trick or treat', 'turkey shoot', 'sharing is caring', 'diffusion', 'black death', 'eminent domain', 'gift exchange', 'naughty list', 'extreme caution', 'heroes from the storm', 'inspiration', 'hardened will', 'fireworks', 'lucky envelopes', 'double-edged', 'fatal attraction', 'propagators', 'moment of silence', 'kill bots', 'boom bots', 'the mist', 'the usual suspects', 'supreme commander', 'shapeshifters', 'rip field generators', 'repulsive field', 'old times', 'nuclear mines', 'necronomicon', 'mothership', 'matryoshka', 'level playing field', 'infestation station', 'i collect, i change', 'great wall', 'endurance', 'dark mirror', 'bloodlust']
 
+
 def openSocket():
     s = socket.socket()
     s.connect((HOST, PORT))
@@ -43,6 +50,7 @@ def openSocket():
     s.send("NICK {}\r\n".format(NICK).encode("utf-8"))
     s.send("JOIN #{}\r\n".format(CHANNEL).encode("utf-8"))
     return s
+
 
 def joinRoom(s):
     readbuffer_join = "".encode()
@@ -60,21 +68,25 @@ def joinRoom(s):
     print("VeryFluffyBot has joined the chat")
     sendMessage(s,'/color green')
 
+
 def loadingComplete(line):
     if ("End of /NAMES list" in line):
         return False
     else:
         return True
 
+
 def getUser(line):
     separate = line.split(":", 2)
     user = separate[1].split("!", 1)[0]
     return user
 
+
 def getMessage(line):
     separate = line.split(":", 2)
     message = separate[2]
     return message
+
 
 def console(line):
     if "PRIVMSG" in line:
@@ -82,9 +94,11 @@ def console(line):
     else:
         return True    
 
+
 def sendMessage(s, message):
     messageTemp = "PRIVMSG #" + CHANNEL + " :" + message
-    print("(sent: " + message+')')
+    if not('/color' in message):
+        print("(sent: " + message+')')
     try:
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
     except BrokenPipeError:
@@ -117,7 +131,8 @@ def sendGameMessage(type, message, user):
 def saveMessage(user,message):
     with open('ChatLog.txt', 'a') as file:
         time_now = str(datetime.datetime.now())[:-7]
-        file.write('\n({}) {}: \t{}'.format(time_now,user,message.rstrip()))
+        file.write('\n({})\t{}:\t{}'.format(time_now,user,message.rstrip()))
+
 
 def pingsAndMessages():
     global findingActivated
@@ -260,6 +275,7 @@ def pingsAndMessages():
 
         time.sleep(1)
 
+
 def getBrutalPlus (diff):
         level = 'undefined'
         if 0 < diff < 4:
@@ -285,6 +301,41 @@ def getBrutalPlus (diff):
         return level
 
 
+def get_replay_path(bank_path):
+    """ Gets replay path from bank path """
+    split = bank_path.split('/')
+    output = ''
+    for item in split:
+        if item == 'Banks':
+            break
+        output = output + item + '/'
+
+    output = output + 'Replays/Multiplayer/'
+    return output
+
+
+def check_replays():
+    """ Checks every 10s for new replays  """
+    replay_path = get_replay_path(BANKFILE)
+    already_opened_replays = []
+
+    while True:      
+        for entry in os.scandir(replay_path):
+            if entry.is_file() and entry.name.endswith('.SC2Replay') and not(entry.name in already_opened_replays):                
+                try:
+                    if (time.time() - os.stat(entry.path).st_mtime < 60) :
+                        already_opened_replays.append(entry.name)
+                        replay_message = analyse_replay(entry.path,PLAYERNAME)
+                        if replay_message != '':
+                            sendMessage(s,replay_message)
+                        else:
+                            print(f'ERROR: No output from replay analysis ({entry.name})') 
+                        break
+                except:
+                    print(f'ERROR: Failed at something with replays({entry.name})') 
+        time.sleep(10)     
+
+
 def FindMutators():
     global postCurrent
     global mutatorsFound
@@ -297,6 +348,7 @@ def FindMutators():
     PreviousMutators = []  
     colors = ['Red', 'Blue']
     currentColor = 0  
+    threshold = 0.9
 
     while True:
 
@@ -315,6 +367,18 @@ def FindMutators():
         img = pyautogui.screenshot(region=(1810,380, 110, 480))
         img_rgb = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
+        # cv2.imshow("orig image", img_rgb)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+        #RESIZING (resize screenshot, if yes, lower threshold since accuracy will take a hit)
+        if RESIZECOEF != 1:
+            img_rgb = cv2.resize(img_rgb,(int(110*RESIZECOEF),int(480*RESIZECOEF)), interpolation = cv2.INTER_AREA)
+            threshold = 0.7
+            # cv2.imshow("resized image", img_rgb)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
         for entry in entries:
             if entry.is_file() and entry.name.endswith('.png'):
 
@@ -327,7 +391,6 @@ def FindMutators():
 
                 res = cv2.matchTemplate(img_rgb,template,cv2.TM_CCOEFF_NORMED)
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-                threshold = 0.9
                 loc = np.where( res >= threshold) #array with values where res > threshold
                         
                 if np.count_nonzero(loc)>0:
@@ -381,4 +444,6 @@ if (__name__ == "__main__"):
     t1.start()
     t2 = threading.Thread(target = pingsAndMessages)
     t2.start()
+    t3 = threading.Thread(target = check_replays)
+    t3.start()
     
