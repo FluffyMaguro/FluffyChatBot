@@ -5,8 +5,16 @@ Post on my site: https://www.maguro.one/2020/01/fluffy-chatbot.html
 * Basic bot stuff - configurable responses
 * Indentifies mutators that are being played and posts the in the chat
 * Calculates mutation difficulty score and equivalent Brutal+ difficulty and posts it into the chat
+
+![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/2019-12-31_183302.png)
+
 * Post game summary
+
+![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/Summay.png)
+
 * Game integration into my [MM] maps. You can affect the game with several supported commands (!join, !message, !spawn, !mutator, !resources).
+
+![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/party.jpg)
 
 Mutator identification would need to be modified to work at different resolutions and screen aspect ratios. I added a lightweight version that supports only basic bot functionality and twitch intergration into my maps.
 
