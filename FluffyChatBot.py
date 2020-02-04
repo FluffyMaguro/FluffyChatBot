@@ -28,8 +28,14 @@ CHANNEL = config['CONFIG']['CHANNEL'] #channel name where bot operates (all lowe
 NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
 PASS = config['CONFIG']['PASS'] #twitch API you get for your bot: "oauth:r7x5n................."
 HOST = config['CONFIG']['HOST'] #for twitch: "irc.twitch.tv"
+ACCOUNTDIR = config['CONFIG']['ACCOUNTDIR']
 PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
-PLAYERNAME = config['CONFIG']['PLAYERNAME']
+
+
+PLAYER_NAMES = []
+for player in config['CONFIG']['PLAYERNAME'].split(','):
+    PLAYER_NAMES.append(player)
+
 try:
     RESIZECOEF = float(config['CONFIG']['RESIZECOEF'])
 except:
@@ -301,38 +307,26 @@ def getBrutalPlus (diff):
         return level
 
 
-def get_replay_path(bank_path):
-    """ Gets replay path from bank path """
-    split = bank_path.split('/')
-    output = ''
-    for item in split:
-        if item == 'Banks':
-            break
-        output = output + item + '/'
-
-    output = output + 'Replays/Multiplayer/'
-    return output
-
-
 def check_replays():
     """ Checks every 10s for new replays  """
-    replay_path = get_replay_path(BANKFILE)
-    already_opened_replays = []
 
+    already_opened_replays = []
     while True:      
-        for entry in os.scandir(replay_path):
-            if entry.is_file() and entry.name.endswith('.SC2Replay') and not(entry.name in already_opened_replays):                
-                try:
-                    if (time.time() - os.stat(entry.path).st_mtime < 60) :
-                        already_opened_replays.append(entry.name)
-                        replay_message = analyse_replay(entry.path,PLAYERNAME)
-                        if replay_message != '':
-                            sendMessage(s,replay_message)
-                        else:
-                            print(f'ERROR: No output from replay analysis ({entry.name})') 
-                        break
-                except:
-                    print(f'ERROR: Failed at something with replays({entry.name})') 
+        for root, directories, files in os.walk(ACCOUNTDIR):
+            for file in files:
+                if file.endswith('.SC2Replay') and not(file in already_opened_replays):
+                    file_path = os.path.join(root,file)
+                    try:
+                        if (time.time() - os.stat(file_path).st_mtime < 60) :                            
+                            replay_message = analyse_replay(file_path,PLAYER_NAMES)
+                            if replay_message != '' and not(file in already_opened_replays):
+                                already_opened_replays.append(file)
+                                sendMessage(s,replay_message)
+                            else:
+                                print(f'ERROR: No output from replay analysis ({file})') 
+                            break
+                    except:
+                        print(f'ERROR: Failed at something with replays({file})')                                
         time.sleep(10)     
 
 
