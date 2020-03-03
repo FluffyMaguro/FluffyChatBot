@@ -1,6 +1,8 @@
 import os
 import sc2reader
 from UnitNameDict import UnitNameDict
+import traceback
+import sys
 
 amon_forces = ['Amon','Infested','Salamander','Void Shard','Hologram','Moebius', "Ji'nara" ]
 duplicating_units = ['HotSRaptor']
@@ -101,18 +103,22 @@ def analyse_replay(filepath, playernames):
                 game_result = 'Victory'
             break
 
-    unit_dict = {}
-    #structure: {unit_id : [UnitType, Owner]}
+    unit_dict = {} #structure: {unit_id : [UnitType, Owner]}
+    DT_HT_Ignore = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] #ignore certain amount of DT/HT deaths after archon is initialized. DT_HT_Ignore[player]
 
     #go through game events
     for event in replay.events:  
         if event.name == 'UnitBornEvent' or event.name == 'UnitInitEvent':
             #save into unit dict
-            try:
-                unit_dict[str(event.unit_id)] = [event.unit_type_name,str(event.unit_controller)[7]]
-            except:
-                #unit created without for no player
-                pass
+
+            owner = None
+            if event.unit_controller != None:
+                if not('Observer' in str(event.unit_controller)):
+                    owner = str(event.unit_controller)[7]
+            if owner == None:
+                continue
+
+            unit_dict[str(event.unit_id)] = [event.unit_type_name, owner]
 
             #certain hero units don't die, instead lets track their revival beacons/cocoons. Let's assume they will finish reviving.
             if event.unit_type_name in revival_types and main_player == event.control_pid and event.second > 0:
@@ -142,6 +148,9 @@ def analyse_replay(filepath, playernames):
                 else:
                     unit_type_dict_amon[unit_type] = [1,0,0,0]
 
+        #ignore some DT/HT deaths caused by Archon merge
+        if event.name == "UnitInitEvent" and event.unit_type_name == "Archon":
+            DT_HT_Ignore[event.control_pid] += 2
 
         if event.name == 'UnitTypeChangeEvent' and str(event.unit_id) in unit_dict:
                 #update unit_dict
@@ -151,9 +160,9 @@ def analyse_replay(filepath, playernames):
                 #add to created units
                 unit_type = event.unit_type_name
                 if unit_type in UnitNameDict and old_unit_type in UnitNameDict:
+                    owner = int(unit_dict[str(event.unit_id)][1])
                     if UnitNameDict[unit_type] != UnitNameDict[old_unit_type]: #don't add into created units if it's just a morph
 
-                        owner = int(unit_dict[str(event.unit_id)][1])
                         # #increase unit type created for controlling player 
                         if main_player == owner:
                             if unit_type in unit_type_dict_maguro:
@@ -166,14 +175,19 @@ def analyse_replay(filepath, playernames):
                                 unit_type_dict_amon[unit_type][0] += 1
                             else:
                                 unit_type_dict_amon[unit_type] = [1,0,0,0]
+                    else:
+                        if main_player == owner and not(unit_type in unit_type_dict_maguro):
+                            unit_type_dict_maguro[unit_type] = [0,0,0,0]    
+                            
+                        if owner in amon_players and not(unit_type in unit_type_dict_amon):
+                            unit_type_dict_amon[unit_type] = [0,0,0,0]    
 
 
         if event.name == 'UnitOwnerChangeEvent' and str(event.unit_id) in unit_dict:
             unit_dict[str(event.unit_id)][1] = str(event.control_pid)
 
 
-
-        if event.name == 'UnitDiedEvent':    
+        if event.name == 'UnitDiedEvent' and str(event.unit_id) in unit_dict:    
             try:
                 killing_unit_id = str(event.killing_unit_id)
                 killed_unit_type = unit_dict[str(event.unit_id)][0]
@@ -208,16 +222,28 @@ def analyse_replay(filepath, playernames):
                     unit_type_dict_maguro[killed_unit_type][0] -= 1
                     continue
 
+                # in case of death caused by Archon merge, ignore these kills
+                if (killed_unit_type == 'HighTemplar' or killed_unit_type == 'DarkTemplar') and DT_HT_Ignore[losing_player] > 0:
+                    DT_HT_Ignore[losing_player] -= 1
+                    continue
+
                 if main_player == losing_player and event.second > 0: #don't count deaths on game init
                     unit_type_dict_maguro[killed_unit_type][1] += 1
 
                 if losing_player in amon_players and event.second > 0:
                     unit_type_dict_amon[killed_unit_type][1] += 1           
-            except:
+            except Exception as e:
+                # print('--> Error:',e)
+                # print ('print_exception():')
+                exc_type, exc_value, exc_tb = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_tb)
                 pass
-                #some units aren't created
 
-   
+    # print(unit_type_dict_maguro)
+    # print()
+    # print(unit_type_dict_amon)
+
+
     #Get messages
     replay_report = f"{game_result}! ({replay.map_name})."
 
@@ -257,7 +283,7 @@ def analyse_replay(filepath, playernames):
     temp_string_init = " Amon has lost"
     temp_string = ''
     for key in sorted_amon:  
-        if sorted_amon[key][1] > 0 and not('droppod' in key.lower()):
+        if sorted_amon[key][1] > 0 and not('droppod' in key.lower()) and not('larva' in key.lower()):
             message_count += 1
             if message_count > 4:
                 temp_string = f'{temp_string} and {sorted_amon[key][1]} {key}s.' 
@@ -293,7 +319,10 @@ def analyse_replay(filepath, playernames):
 
 # file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts/114803619/1-S2-1-4189373/Replays/Multiplayer/[MM] Temple of the Past - Terran (74).SC2Replay'
 # file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts/114803619/1-S2-1-4189373/Replays/Multiplayer/Scythe of Amon (226).SC2Replay'
+# file_path = 'CoA.SC2Replay'
+# file_path = 'CoD.SC2Replay'
+
 
 # PLAYERNAME = 'Maguro'
-# replay_message = analyse_replay(file_path,PLAYERNAME)
+# replay_message = analyse_replay(file_path,[PLAYERNAME])
 # print(replay_message)

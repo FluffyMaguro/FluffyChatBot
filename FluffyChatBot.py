@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 import configparser
 import random
 import datetime
+import requests
 from ReplayAnalysis import analyse_replay
 
 ### Set up is loaded from a config.ini file
@@ -351,6 +352,16 @@ def FindMutators():
             print('//mutator find disabled')
             continue
 
+        game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
+        game_response = game_response.json()
+        if 'isReplay' in game_response:
+            isReplay =  game_response['isReplay']
+            if isReplay:
+                time.sleep(INTERVAL)
+                continue
+        else:
+            print('game not running? no reponse')
+
         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
         NewMutators = []
         a = 0
@@ -426,7 +437,10 @@ def FindMutators():
                 sendMessage(s,Message)
                 MutationDifficulty += int(MutatorDiffScore.get(row['Mutator']))
 
-            sendMessage(s,'Total difficulty score: ' + str(MutationDifficulty) +' ('+getBrutalPlus(MutationDifficulty)+')')
+            p1name =  game_response['players'][0]['name']
+            p2name =  game_response['players'][1]['name']
+
+            sendMessage(s,f'{p1name} and {p2name} will face a mutation with total difficulty score of {str(MutationDifficulty)} ({getBrutalPlus(MutationDifficulty)})')
 
         time.sleep(INTERVAL)
 
