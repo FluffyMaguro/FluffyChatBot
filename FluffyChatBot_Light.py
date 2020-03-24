@@ -255,7 +255,7 @@ def pingsAndMessages():
                     response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
 
-            if first_word[1:] in OtherCommands: #this is for future command that can be added later
+            if first_word[1:] in OtherCommands and first_word[0] == "!": #this is for future command that can be added later
                 sendGameMessage(first_word[1:], following_words, user) 
 
             #other commands      
@@ -266,7 +266,7 @@ def pingsAndMessages():
             #general responses configurable in config.ini    
             after_command = first_word.replace('!','') #strip of "!"
 
-            if after_command in config['RESPONSES'].keys(): 
+            if after_command in config['RESPONSES'].keys() and first_word[0] == "!": 
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES'][after_command])
 
