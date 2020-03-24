@@ -11,8 +11,8 @@ import xml.etree.ElementTree as ET
 import configparser
 import random
 import datetime
-import requests
-from ReplayAnalysis import analyse_replay
+# import requests
+# from ReplayAnalysis import analyse_replay
 
 ### Set up is loaded from a config.ini file
 config = configparser.ConfigParser()
