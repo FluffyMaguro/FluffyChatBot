@@ -20,7 +20,7 @@ config.read('config.ini')
 
 local_test = False #for local testing, different bank file & no mutator log saving
 
-if local_test == True:
+if local_test == False:
     BANKFILE = config['CONFIG']['LOCALBANKFILE']
 else:
     BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
@@ -383,6 +383,8 @@ def FindMutators():
                 print('game not running? no reponse')
         except:
             print('Error, no response from the game')
+            time.sleep(INTERVAL)
+            continue
 
         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
         NewMutators = []
