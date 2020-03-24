@@ -371,15 +371,18 @@ def FindMutators():
             print('//mutator find disabled')
             continue
 
-        game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
-        game_response = game_response.json()
-        if 'isReplay' in game_response:
-            isReplay =  game_response['isReplay']
-            if isReplay:
-                time.sleep(INTERVAL)
-                continue
-        else:
-            print('game not running? no reponse')
+        try:
+            game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
+            game_response = game_response.json()
+            if 'isReplay' in game_response:
+                isReplay =  game_response['isReplay']
+                if isReplay:
+                    time.sleep(INTERVAL)
+                    continue
+            else:
+                print('game not running? no reponse')
+        except:
+            print('Error, no response from the game')
 
         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
         NewMutators = []
