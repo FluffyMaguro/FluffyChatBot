@@ -20,7 +20,7 @@ config.read('config.ini')
 
 local_test = False #for local testing, different bank file & no mutator log saving
 
-if local_test == False:
+if local_test == True:
     BANKFILE = config['CONFIG']['LOCALBANKFILE']
 else:
     BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
@@ -382,7 +382,7 @@ def FindMutators():
             else:
                 print('game not running? no reponse')
         except:
-            print('Error, no response from the game')
+            print('Error: No response from the game')
             time.sleep(INTERVAL)
             continue
 
