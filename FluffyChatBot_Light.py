@@ -58,7 +58,7 @@ postCurrent = False
 mutatorsFound = False
 CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
 MutatorList = ['walking infested', 'outbreak', 'darkness', 'time warp', 'speed freaks', 'mag-nificent', 'mineral shields', 'barrier', 'avenger', 'evasive maneuvers', 'scorched earth', 'lava burst', 'self destruction', 'aggressive deployment', 'alien incubation', 'laser drill', 'long range', 'shortsighted', 'mutually assured destruction', 'we move unseen', 'slim pickings', 'concussive attacks', 'just die!', 'temporal field', 'void rifts', 'twister', 'orbital strike', 'purifier beam', 'blizzard', 'fear', 'photon overload', 'minesweeper', 'void reanimators', 'going nuclear', 'life leech', 'power overwhelming', 'micro transactions', 'missile command', 'vertigo', 'polarity', 'transmutation', 'afraid of the dark', 'trick or treat', 'turkey shoot', 'sharing is caring', 'diffusion', 'black death', 'eminent domain', 'gift exchange', 'naughty list', 'extreme caution', 'heroes from the storm', 'inspiration', 'hardened will', 'fireworks', 'lucky envelopes', 'double-edged', 'fatal attraction', 'propagators', 'moment of silence', 'kill bots', 'boom bots', 'the mist', 'the usual suspects', 'supreme commander', 'shapeshifters', 'rip field generators', 'repulsive field', 'old times', 'nuclear mines', 'necronomicon', 'mothership', 'matryoshka', 'level playing field', 'infestation station', 'i collect, i change', 'great wall', 'endurance', 'dark mirror', 'bloodlust']
-
+UnconfirmedCommands = dict()
 
 def openSocket():
     s = socket.socket()
@@ -123,13 +123,15 @@ def sendMessage(s, message):
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
 
 
-def sendGameMessage(type, message, user):
+def sendGameMessage(ptype, message, user):
     global CommandNumber
+    global UnconfirmedCommands
+
     try:
         tree = ET.parse(BANKFILE) #reload to account for new changes
         root = tree.getroot()
 
-        if type == 'mutator':
+        if ptype == 'mutator':
             message = message.lower()
             mutator = message.replace(' disable','')
             if not(mutator in MutatorList):     
@@ -139,15 +141,42 @@ def sendGameMessage(type, message, user):
             if mutator in BannedMutators:
                 print('Mutator is banned!')
                 return '{this mutator is banned from use and will not be activated!}'
+
+
+        #reset unconfirmed commands if it's a new game
+        for child in root:
+            if child.attrib['name'] == "NewGame":
+                UnconfirmedCommands = dict()
+                root.remove(child)
+
         
+        #update unconfirmed commands with those that were executed
+        for child in root:
+            if child.attrib['name'] == "ExecutedCommands":
+                for command in child:
+                    com_number = command.attrib['name']
+                    if com_number in UnconfirmedCommands:
+                        del UnconfirmedCommands[com_number]
+                    child.remove(command)
+
+        #start sending messages
         for child in root: 
             if child.attrib['name'] == 'Commands':
+
+                #resend commands
+                for command in UnconfirmedCommands:
+                    child.append((ET.fromstring('<Key name="' + UnconfirmedCommands[command][0] + ' ' + command +' #'+ UnconfirmedCommands[command][1] +'"><Value string="'+ UnconfirmedCommands[command][2] +'" /></Key>')))
+                
+                #send new message
                 CommandNumber += 1
-                child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
-                tree.write(BANKFILE)
-                return ''
-    except:
-        print('ERROR – bank not loaded properly, message not sent')
+                child.append((ET.fromstring('<Key name="' + ptype + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
+                UnconfirmedCommands[str(CommandNumber)] = [ptype, user, message]
+
+        tree.write(BANKFILE)
+        return ""
+        
+    except Exception as e:
+        print(e,'ERROR – bank not loaded properly, message not sent')
          
 
 def saveMessage(user,message):
