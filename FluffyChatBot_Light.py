@@ -10,6 +10,9 @@ import os
 import xml.etree.ElementTree as ET
 import configparser
 import random
+import datetime
+import requests
+from ReplayAnalysis import analyse_replay
 
 ### Set up is loaded from a config.ini file
 config = configparser.ConfigParser()
@@ -26,14 +29,36 @@ CHANNEL = config['CONFIG']['CHANNEL'] #channel name where bot operates (all lowe
 NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
 PASS = config['CONFIG']['PASS'] #twitch API you get for your bot: "oauth:r7x5n................."
 HOST = config['CONFIG']['HOST'] #for twitch: "irc.twitch.tv"
+ACCOUNTDIR = config['CONFIG']['ACCOUNTDIR']
 PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
 
+PLAYER_NAMES = []
+for player in config['CONFIG']['PLAYERNAME'].split(','):
+    PLAYER_NAMES.append(player)
+
+try:
+    RESIZECOEF = float(config['CONFIG']['RESIZECOEF'])
+except:
+    RESIZECOEF = 1
+
+BannedMutators = []
+for mutator in config['CONFIG']['BANNEDMUTATORS'].split(','):
+    BannedMutators.append(mutator.lower().rstrip().lstrip())
+
+OtherCommands = []
+for command in config['CONFIG']['OTHERCOMMANDS'].split(','):
+    com = command.lower().rstrip().lstrip()
+    if com != "":
+        OtherCommands.append(command.lower().rstrip().lstrip())
+
+
 ### Init some variables
-# findingActivated = True
-# postCurrent = False
-# mutatorsFound = False
+findingActivated = True
+postCurrent = False
+mutatorsFound = False
 CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
 MutatorList = ['walking infested', 'outbreak', 'darkness', 'time warp', 'speed freaks', 'mag-nificent', 'mineral shields', 'barrier', 'avenger', 'evasive maneuvers', 'scorched earth', 'lava burst', 'self destruction', 'aggressive deployment', 'alien incubation', 'laser drill', 'long range', 'shortsighted', 'mutually assured destruction', 'we move unseen', 'slim pickings', 'concussive attacks', 'just die!', 'temporal field', 'void rifts', 'twister', 'orbital strike', 'purifier beam', 'blizzard', 'fear', 'photon overload', 'minesweeper', 'void reanimators', 'going nuclear', 'life leech', 'power overwhelming', 'micro transactions', 'missile command', 'vertigo', 'polarity', 'transmutation', 'afraid of the dark', 'trick or treat', 'turkey shoot', 'sharing is caring', 'diffusion', 'black death', 'eminent domain', 'gift exchange', 'naughty list', 'extreme caution', 'heroes from the storm', 'inspiration', 'hardened will', 'fireworks', 'lucky envelopes', 'double-edged', 'fatal attraction', 'propagators', 'moment of silence', 'kill bots', 'boom bots', 'the mist', 'the usual suspects', 'supreme commander', 'shapeshifters', 'rip field generators', 'repulsive field', 'old times', 'nuclear mines', 'necronomicon', 'mothership', 'matryoshka', 'level playing field', 'infestation station', 'i collect, i change', 'great wall', 'endurance', 'dark mirror', 'bloodlust']
+
 
 def openSocket():
     s = socket.socket()
@@ -42,6 +67,7 @@ def openSocket():
     s.send("NICK {}\r\n".format(NICK).encode("utf-8"))
     s.send("JOIN #{}\r\n".format(CHANNEL).encode("utf-8"))
     return s
+
 
 def joinRoom(s):
     readbuffer_join = "".encode()
@@ -59,21 +85,25 @@ def joinRoom(s):
     print("VeryFluffyBot has joined the chat")
     sendMessage(s,'/color green')
 
+
 def loadingComplete(line):
     if ("End of /NAMES list" in line):
         return False
     else:
         return True
 
+
 def getUser(line):
     separate = line.split(":", 2)
     user = separate[1].split("!", 1)[0]
     return user
 
+
 def getMessage(line):
     separate = line.split(":", 2)
     message = separate[2]
     return message
+
 
 def console(line):
     if "PRIVMSG" in line:
@@ -81,9 +111,11 @@ def console(line):
     else:
         return True    
 
+
 def sendMessage(s, message):
     messageTemp = "PRIVMSG #" + CHANNEL + " :" + message
-    print("(sent: " + message+')')
+    if not('/color' in message):
+        print("(sent: " + message+')')
     try:
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
     except BrokenPipeError:
@@ -99,23 +131,34 @@ def sendGameMessage(type, message, user):
 
         if type == 'mutator':
             message = message.lower()
-            if not(message in MutatorList):     
+            mutator = message.replace(' disable','')
+            if not(mutator in MutatorList):     
                 print('ERROR, mutator not in the list')
                 return '{incorrect mutator name}'
+
+            if mutator in BannedMutators:
+                print('Mutator is banned!')
+                return '{this mutator is banned from use and will not be activated!}'
         
         for child in root: 
             if child.attrib['name'] == 'Commands':
                 CommandNumber += 1
                 child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
                 tree.write(BANKFILE)
-                return '{request sent}'
+                return ''
     except:
         print('ERROR – bank not loaded properly, message not sent')
          
 
+def saveMessage(user,message):
+    with open('ChatLog.txt', 'a') as file:
+        time_now = str(datetime.datetime.now())[:-7]
+        file.write('\n({})\t{}:\t{}'.format(time_now,user,message.rstrip()))
+
+
 def pingsAndMessages():
-    # global findingActivated
-    # global postCurrent
+    global findingActivated
+    global postCurrent
     # global CommandNumber
     GMActive = True 
     GMActiveFull = False 
@@ -146,6 +189,7 @@ def pingsAndMessages():
             user = getUser(line) 
             message = getMessage(line)
             first_word = message.split()[0].lower()
+            saveMessage(user,message)
             try:
                 following_words = message.split(' ',1)[1].rstrip() #rstrip strips the end (spaces, breaks) from the string
             except:
@@ -184,6 +228,8 @@ def pingsAndMessages():
                 else:
                     response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
+                    if response != "":
+                        sendMessage(s,response)
 
             if "!spawn" == first_word:
                 sendMessage(s,'/color ' + chatColor)
@@ -208,6 +254,9 @@ def pingsAndMessages():
                 else:
                     response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
+
+            if first_word[1:] in OtherCommands: #this is for future command that can be added later
+                sendGameMessage(first_word[1:], following_words, user) 
 
             #other commands      
             if "@VeryFluffyBot" in line and not(console(line)):
@@ -253,6 +302,7 @@ def pingsAndMessages():
 
         time.sleep(1)
 
+
 # def getBrutalPlus (diff):
 #         level = 'undefined'
 #         if 0 < diff < 4:
@@ -278,6 +328,29 @@ def pingsAndMessages():
 #         return level
 
 
+# def check_replays():
+#     """ Checks every 10s for new replays  """
+
+#     already_opened_replays = []
+#     while True:      
+#         for root, directories, files in os.walk(ACCOUNTDIR):
+#             for file in files:
+#                 if file.endswith('.SC2Replay') and not(file in already_opened_replays):
+#                     file_path = os.path.join(root,file)
+#                     try:
+#                         if (time.time() - os.stat(file_path).st_mtime < 60) :                            
+#                             replay_message = analyse_replay(file_path,PLAYER_NAMES)
+#                             if replay_message != '' and not(file in already_opened_replays):
+#                                 already_opened_replays.append(file)
+#                                 sendMessage(s,replay_message)
+#                             else:
+#                                 print(f'ERROR: No output from replay analysis ({file})') 
+#                             break
+#                     except:
+#                         print(f'ERROR: Failed at something with replays({file})')                                
+#         time.sleep(10)     
+
+
 # def FindMutators():
 #     global postCurrent
 #     global mutatorsFound
@@ -290,13 +363,23 @@ def pingsAndMessages():
 #     PreviousMutators = []  
 #     colors = ['Red', 'Blue']
 #     currentColor = 0  
+#     threshold = 0.9
 
 #     while True:
-
 #         if findingActivated == False: #skip if the function is deactivated via chat command (temporarily)
 #             time.sleep(INTERVAL)
 #             print('//mutator find disabled')
 #             continue
+
+#         game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
+#         game_response = game_response.json()
+#         if 'isReplay' in game_response:
+#             isReplay =  game_response['isReplay']
+#             if isReplay:
+#                 time.sleep(INTERVAL)
+#                 continue
+#         else:
+#             print('game not running? no reponse')
 
 #         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
 #         NewMutators = []
@@ -307,6 +390,18 @@ def pingsAndMessages():
         
 #         img = pyautogui.screenshot(region=(1810,380, 110, 480))
 #         img_rgb = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+#         # cv2.imshow("orig image", img_rgb)
+#         # cv2.waitKey(0)
+#         # cv2.destroyAllWindows()
+
+#         #RESIZING (resize screenshot, if yes, lower threshold since accuracy will take a hit)
+#         if RESIZECOEF != 1:
+#             img_rgb = cv2.resize(img_rgb,(int(110*RESIZECOEF),int(480*RESIZECOEF)), interpolation = cv2.INTER_AREA)
+#             threshold = 0.7
+#             # cv2.imshow("resized image", img_rgb)
+#             # cv2.waitKey(0)
+#             # cv2.destroyAllWindows()
 
 #         for entry in entries:
 #             if entry.is_file() and entry.name.endswith('.png'):
@@ -320,7 +415,6 @@ def pingsAndMessages():
 
 #                 res = cv2.matchTemplate(img_rgb,template,cv2.TM_CCOEFF_NORMED)
 #                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-#                 threshold = 0.9
 #                 loc = np.where( res >= threshold) #array with values where res > threshold
                         
 #                 if np.count_nonzero(loc)>0:
@@ -332,7 +426,7 @@ def pingsAndMessages():
 #                             FewMutators = True
 
 #                     NewMutators.append(entry.name.split('.')[0]) #add to pd frames to sort later by position (x,y)
-#                     MutatorDF.loc[a] = [entry.name.split('.')[0].split('_')[0]]+[MutatorDescriptions[entry.name.split('.')[0].split('_')[0]]]+[round(max_loc[1]/10,0)]+[round(max_loc[0]/10,0)]+[round(max_val,3)]
+#                     MutatorDF.loc[a] = [entry.name.split('.')[0].split('_')[0]]+[MutatorDescriptions.get(entry.name.split('.')[0].split('_')[0])]+[round(max_loc[1]/10,0)]+[round(max_loc[0]/10,0)]+[round(max_val,3)]
 #                     a += 1
 
 #         MutatorsNotChanged = len(set(PreviousMutators) & set(NewMutators)) >= len(NewMutators)  
@@ -358,11 +452,14 @@ def pingsAndMessages():
 
 #             for index, row in SortedMutatorDF.iterrows():
 #                 print(index, row['Mutator'],' ', row['Max_val'])
-#                 Message = row['Mutator'] + ' ('+ MutatorDiffScore[row['Mutator']] +') - ' + row['Description'] #'/me : '
+#                 Message = row['Mutator'] + ' ('+ MutatorDiffScore.get(row['Mutator']) +') - ' + row['Description'] #'/me : '
 #                 sendMessage(s,Message)
-#                 MutationDifficulty += int(MutatorDiffScore[row['Mutator']])
+#                 MutationDifficulty += int(MutatorDiffScore.get(row['Mutator']))
 
-#             sendMessage(s,'Total difficulty score: ' + str(MutationDifficulty) +' ('+getBrutalPlus(MutationDifficulty)+')')
+#             p1name =  game_response['players'][0]['name']
+#             p2name =  game_response['players'][1]['name']
+
+#             sendMessage(s,f'{p1name} and {p2name} will face a mutation with total difficulty score of {str(MutationDifficulty)} ({getBrutalPlus(MutationDifficulty)})')
 
 #         time.sleep(INTERVAL)
 
@@ -371,4 +468,10 @@ if (__name__ == "__main__"):
     s = openSocket()
     joinRoom(s)
     pingsAndMessages()
+    # t1 = threading.Thread(target = FindMutators)
+    # t1.start()
+    # t2 = threading.Thread(target = pingsAndMessages)
+    # t2.start()
+    # t3 = threading.Thread(target = check_replays)
+    t3.start()
     

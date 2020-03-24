@@ -32,7 +32,6 @@ HOST = config['CONFIG']['HOST'] #for twitch: "irc.twitch.tv"
 ACCOUNTDIR = config['CONFIG']['ACCOUNTDIR']
 PORT = int(config['CONFIG']['PORT']) #port, for twitch: "6667"
 
-
 PLAYER_NAMES = []
 for player in config['CONFIG']['PLAYERNAME'].split(','):
     PLAYER_NAMES.append(player)
@@ -41,6 +40,17 @@ try:
     RESIZECOEF = float(config['CONFIG']['RESIZECOEF'])
 except:
     RESIZECOEF = 1
+
+BannedMutators = []
+for mutator in config['CONFIG']['BANNEDMUTATORS'].split(','):
+    BannedMutators.append(mutator.lower().rstrip().lstrip())
+
+OtherCommands = []
+for command in config['CONFIG']['OTHERCOMMANDS'].split(','):
+    com = command.lower().rstrip().lstrip()
+    if com != "":
+        OtherCommands.append(command.lower().rstrip().lstrip())
+
 
 ### Init some variables
 findingActivated = True
@@ -121,16 +131,21 @@ def sendGameMessage(type, message, user):
 
         if type == 'mutator':
             message = message.lower()
-            if not(message in MutatorList):     
+            mutator = message.replace(' disable','')
+            if not(mutator in MutatorList):     
                 print('ERROR, mutator not in the list')
                 return '{incorrect mutator name}'
+
+            if mutator in BannedMutators:
+                print('Mutator is banned!')
+                return '{this mutator is banned from use and will not be activated!}'
         
         for child in root: 
             if child.attrib['name'] == 'Commands':
                 CommandNumber += 1
                 child.append((ET.fromstring('<Key name="' + type + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
                 tree.write(BANKFILE)
-                return '{request sent}'
+                return ''
     except:
         print('ERROR – bank not loaded properly, message not sent')
          
@@ -213,6 +228,8 @@ def pingsAndMessages():
                 else:
                     response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
+                    if response != "":
+                        sendMessage(s,response)
 
             if "!spawn" == first_word:
                 sendMessage(s,'/color ' + chatColor)
@@ -237,6 +254,9 @@ def pingsAndMessages():
                 else:
                     response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
+
+            if first_word[1:] in OtherCommands: #this is for future command that can be added later
+                sendGameMessage(first_word[1:], following_words, user) 
 
             #other commands      
             if "@VeryFluffyBot" in line and not(console(line)):
@@ -346,7 +366,6 @@ def FindMutators():
     threshold = 0.9
 
     while True:
-
         if findingActivated == False: #skip if the function is deactivated via chat command (temporarily)
             time.sleep(INTERVAL)
             print('//mutator find disabled')
