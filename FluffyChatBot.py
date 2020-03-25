@@ -149,6 +149,7 @@ def sendGameMessage(ptype, message, user):
             if child.attrib['name'] == "NewGame":
                 UnconfirmedCommands = dict()
                 root.remove(child)
+                break
 
         
         #update unconfirmed commands with those that were executed
@@ -158,7 +159,10 @@ def sendGameMessage(ptype, message, user):
                     com_number = command.attrib['name']
                     if com_number in UnconfirmedCommands:
                         del UnconfirmedCommands[com_number]
-                    child.remove(command)
+
+                root.remove(child) #removes the section
+                break
+
 
         #start sending messages
         for child in root: 
