@@ -18,13 +18,6 @@ import datetime
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-local_test = False #for local testing, different bank file & no mutator log saving
-
-if local_test == True:
-    BANKFILE = config['CONFIG']['LOCALBANKFILE']
-else:
-    BANKFILE = config['CONFIG']['BANKFILE'] #location of bank file, for example: 'C:\\Users\\Maguro\\Documents\\StarCraft II\\Accounts\\114803619\\1-S2-1-4189373\\Banks\\1-S2-1-4189373\\MMTwitchIntegration.SC2Bank'
-
 CHANNEL = config['CONFIG']['CHANNEL'] #channel name where bot operates (all lowercase)
 NICK = config['CONFIG']['NICK'] #bot name (all lowercase)
 PASS = config['CONFIG']['PASS'] #twitch API you get for your bot: "oauth:r7x5n................."
@@ -50,6 +43,13 @@ for command in config['CONFIG']['OTHERCOMMANDS'].split(','):
     com = command.lower().rstrip().lstrip()
     if com != "":
         OtherCommands.append(command.lower().rstrip().lstrip())
+
+#Get available bankfiles
+BankDict = dict()
+for bank in config['BANKS']:
+    BankDict[bank] = config['BANKS'][bank]
+
+BANKFILE = BankDict.get('default',list(BankDict.values())[0]) #default or the first one
 
 
 ### Init some variables
@@ -191,6 +191,7 @@ def saveMessage(user,message):
 def pingsAndMessages():
     global findingActivated
     global postCurrent
+    global BANKFILE
     # global CommandNumber
     GMActive = True 
     GMActiveFull = False 
@@ -235,60 +236,78 @@ def pingsAndMessages():
                 if 'full' in following_words:
                     GMActive = True
                     GMActiveFull = True
-                    sendMessage(s,'{Full game integration} !mutator, !spawn, and !resources commands enabled') #mutators, spawning, resources
+                    sendMessage(s,'/me {Full game integration} !mutator, !spawn, and !resources commands enabled') #mutators, spawning, resources
                 elif 'stop' in following_words:
                     GMActive = False
                     GMActiveFull = False
-                    sendMessage(s,'{Game integration disabled}') #mutators, spawning, resources
+                    sendMessage(s,'/me {Game integration disabled}') #mutators, spawning, resources
                 else:
                     GMActive = True
                     GMActiveFull = False
-                    sendMessage(s,'{Partial game integration} !join and !message commands active') #mutators, spawning, resources
+                    sendMessage(s,'/me {Partial game integration} !join and !message commands active') #mutators, spawning, resources
+
+
+            if "!bank" == first_word and user == CHANNEL:
+                if following_words.lower() in BankDict:
+                    BANKFILE = BankDict[following_words.lower()]
+                    sendMessage(s,f'/me Bank file changed to: {following_words}')
+                elif following_words=="":
+                    BANKFILE = BankDict.get('default',list(BankDict.values())[0])
+                    sendMessage(s,f'/me Bank file set to default value')
+                else:
+                    bank_keys = str(list(BankDict.keys()))[1:-1].replace("'", "")
+                    sendMessage(s,f'/me Incorrect bank name, choose one: {bank_keys}')
+
 
             if "!message" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActive == False:
-                    sendMessage(s,'{Game integration inactive}')
+                    sendMessage(s,'/me {Game integration inactive}')
                 else:
                     print('message sent:',user,following_words)
                     sendGameMessage('message', user +': ' + following_words,user)
 
+
             if "!mutator" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'{Full game integration inactive}')
+                    sendMessage(s,'/me {Full game integration inactive}')
                 else:
                     response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
                     if response != "":
                         sendMessage(s,response)
 
+
             if "!spawn" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'{Full game integration inactive}')
+                    sendMessage(s,'/me {Full game integration inactive}')
                 else:
                     response = sendGameMessage('spawn', following_words,user) 
                     print('unit spawned:',following_words)
 
+
             if "!resources" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'{Full game integration inactive}')
+                    sendMessage(s,'/me {Full game integration inactive}')
                 else:
                     response = sendGameMessage('resources', following_words,user) 
                     print('resources given:',following_words)
 
+
             if "!join" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActive == False:
-                    sendMessage(s,'{Game integration inactive}')
+                    sendMessage(s,'/me {Game integration inactive}')
                 else:
                     response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
 
             if first_word[1:] in OtherCommands and first_word[0] == "!": #this is for future command that can be added later
                 sendGameMessage(first_word[1:], following_words, user) 
+
 
             #other commands      
             if "@VeryFluffyBot" in line and not(console(line)):
