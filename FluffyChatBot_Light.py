@@ -1,16 +1,17 @@
 import socket
 import string
 import time
-# import threading
-# import cv2
-# import numpy as np
-# import pyautogui
 import os
-# import pandas as pd
 import xml.etree.ElementTree as ET
 import configparser
 import random
 import datetime
+
+# import threading
+# import cv2
+# import numpy as np
+# import pyautogui
+# import pandas as pd
 # import requests
 # from ReplayAnalysis import analyse_replay
 
@@ -34,15 +35,34 @@ try:
 except:
     RESIZECOEF = 1
 
+
 BannedMutators = []
 for mutator in config['CONFIG']['BANNEDMUTATORS'].split(','):
-    BannedMutators.append(mutator.lower().rstrip().lstrip())
+    mut = mutator.lower().rstrip().lstrip()
+    if mut != "":
+        BannedMutators.append(mut)
+
+
+BannedUnits = []
+for unit in config['CONFIG']['BANNEDUNITS'].split(','):
+    un = unit.lower().rstrip().lstrip()
+    if un != "":
+        BannedUnits.append(un)
+
 
 OtherCommands = []
 for command in config['CONFIG']['OTHERCOMMANDS'].split(','):
     com = command.lower().rstrip().lstrip()
     if com != "":
-        OtherCommands.append(command.lower().rstrip().lstrip())
+        OtherCommands.append(com)
+
+
+OtherCommands_full = []
+for command in config['CONFIG']['OTHERCOMMANDS_FULL'].split(','):
+    com = command.lower().rstrip().lstrip()
+    if com != "":
+        OtherCommands_full.append(com)
+
 
 #Get available bankfiles
 BankDict = dict()
@@ -123,6 +143,7 @@ def sendMessage(s, message):
         s.send("{}\r\n".format(messageTemp).encode("utf-8"))
 
 
+
 def sendGameMessage(ptype, message, user):
     global CommandNumber
     global UnconfirmedCommands
@@ -162,6 +183,7 @@ def sendGameMessage(ptype, message, user):
                 root.remove(child) #removes the section
                 break
 
+
         #start sending messages
         for child in root: 
             if child.attrib['name'] == 'Commands':
@@ -181,6 +203,7 @@ def sendGameMessage(ptype, message, user):
     except Exception as e:
         print(e,'ERROR – bank not loaded properly, message not sent')
          
+
 
 def saveMessage(user,message):
     with open('ChatLog.txt', 'a') as file:
@@ -236,15 +259,15 @@ def pingsAndMessages():
                 if 'full' in following_words:
                     GMActive = True
                     GMActiveFull = True
-                    sendMessage(s,'/me {Full game integration} !mutator, !spawn, and !resources commands enabled') #mutators, spawning, resources
+                    sendMessage(s,'/me Full game integration. !mutator, !spawn, and !resources commands enabled') #mutators, spawning, resources
                 elif 'stop' in following_words:
                     GMActive = False
                     GMActiveFull = False
-                    sendMessage(s,'/me {Game integration disabled}') #mutators, spawning, resources
+                    sendMessage(s,'/me Game integration disabled') #mutators, spawning, resources
                 else:
                     GMActive = True
                     GMActiveFull = False
-                    sendMessage(s,'/me {Partial game integration} !join and !message commands active') #mutators, spawning, resources
+                    sendMessage(s,'/me Partial game integration. !join and !message commands active') #mutators, spawning, resources
 
 
             if "!bank" == first_word and user == CHANNEL:
@@ -262,7 +285,7 @@ def pingsAndMessages():
             if "!message" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActive == False:
-                    sendMessage(s,'/me {Game integration inactive}')
+                    sendMessage(s,'/me Game integration inactive')
                 else:
                     print('message sent:',user,following_words)
                     sendGameMessage('message', user +': ' + following_words,user)
@@ -271,7 +294,7 @@ def pingsAndMessages():
             if "!mutator" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'/me {Full game integration inactive}')
+                    sendMessage(s,'/me Full game integration inactive')
                 else:
                     response = sendGameMessage('mutator', following_words,user) 
                     print('mutator started:',following_words)
@@ -282,16 +305,21 @@ def pingsAndMessages():
             if "!spawn" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'/me {Full game integration inactive}')
+                    sendMessage(s,'/me Full game integration inactive')
                 else:
-                    response = sendGameMessage('spawn', following_words,user) 
-                    print('unit spawned:',following_words)
+                    unit = following_words.split(' ')[0]
+                    if unit.lower() in BannedUnits:
+                        sendMessage(s,f'/me Spawning {unit} is prohibited!')
+                    else:
+                        response = sendGameMessage('spawn', following_words,user) 
+                        print('unit spawned:',following_words)
+
 
 
             if "!resources" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActiveFull == False:
-                    sendMessage(s,'/me {Full game integration inactive}')
+                    sendMessage(s,'/me Full game integration inactive')
                 else:
                     response = sendGameMessage('resources', following_words,user) 
                     print('resources given:',following_words)
@@ -300,13 +328,23 @@ def pingsAndMessages():
             if "!join" == first_word:
                 sendMessage(s,'/color ' + chatColor)
                 if GMActive == False:
-                    sendMessage(s,'/me {Game integration inactive}')
+                    sendMessage(s,'/me Game integration inactive')
                 else:
                     response = sendGameMessage('join', following_words, user) 
                     print('user joined:', user)
 
+
             if first_word[1:] in OtherCommands and first_word[0] == "!": #this is for future command that can be added later
                 sendGameMessage(first_word[1:], following_words, user) 
+
+
+            if first_word[1:] in OtherCommands_full and first_word[0] == "!": #this is for future command that can be added later
+                sendMessage(s,'/color ' + chatColor)
+                if GMActiveFull == False:
+                    sendMessage(s,'/me Game integration inactive')
+                else:
+                    response = sendGameMessage(first_word[1:], following_words, user)  
+                    print('sending full command')
 
 
             #other commands      
@@ -314,8 +352,11 @@ def pingsAndMessages():
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES']['RESPONSE'])
 
+
             #general responses configurable in config.ini    
-            after_command = first_word.replace('!','') #strip of "!"
+            if (first_word[0] =='!'):
+                after_command = first_word.replace('!','') #strip of "!"
+
 
             if after_command in config['RESPONSES'].keys() and first_word[0] == "!": 
                 sendMessage(s,'/color ' + chatColor)
@@ -422,15 +463,20 @@ def pingsAndMessages():
 #             print('//mutator find disabled')
 #             continue
 
-#         game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
-#         game_response = game_response.json()
-#         if 'isReplay' in game_response:
-#             isReplay =  game_response['isReplay']
-#             if isReplay:
-#                 time.sleep(INTERVAL)
-#                 continue
-#         else:
-#             print('game not running? no reponse')
+#         try:
+#             game_response = requests.get('http://localhost:6119/game') #SC2 returns simple response with player names and races (or random)
+#             game_response = game_response.json()
+#             if 'isReplay' in game_response:
+#                 isReplay =  game_response['isReplay']
+#                 if isReplay:
+#                     time.sleep(INTERVAL)
+#                     continue
+#             else:
+#                 print('game not running? no reponse')
+#         except:
+#             # print('Error: No response from the game')
+#             time.sleep(INTERVAL)
+#             continue
 
 #         MutatorDF = pd.DataFrame(columns=['Mutator', 'Description', 'Y','X','Max_val'])
 #         NewMutators = []
@@ -490,8 +536,7 @@ def pingsAndMessages():
             
 #             if not(MutatorsNotChanged): #sort & save only if mutations changed, and not when using !current command
 #                 SortedMutatorDF = MutatorDF.sort_values(by=['Y','X'], ascending=True).reset_index()
-#                 if local_test == False:
-#                     MutatorDF['Mutator'].to_csv('MutatorLog.csv', mode='a', header=False, sep ='\t')
+#                 MutatorDF['Mutator'].to_csv('MutatorLog.csv', mode='a', header=False, sep ='\t')
 
 #             currentColor += 1
 #             if currentColor >= len(colors): #loop back if max
@@ -524,5 +569,5 @@ if (__name__ == "__main__"):
     # t2 = threading.Thread(target = pingsAndMessages)
     # t2.start()
     # t3 = threading.Thread(target = check_replays)
-    t3.start()
+    # t3.start()
     
