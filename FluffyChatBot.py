@@ -34,15 +34,34 @@ try:
 except:
     RESIZECOEF = 1
 
+
 BannedMutators = []
 for mutator in config['CONFIG']['BANNEDMUTATORS'].split(','):
-    BannedMutators.append(mutator.lower().rstrip().lstrip())
+    mut = mutator.lower().rstrip().lstrip()
+    if mut != "":
+        BannedMutators.append(mut)
+
+
+BannedUnits = []
+for unit in config['CONFIG']['BANNEDUNITS'].split(','):
+    un = unit.lower().rstrip().lstrip()
+    if un != "":
+        BannedUnits.append(un)
+
 
 OtherCommands = []
 for command in config['CONFIG']['OTHERCOMMANDS'].split(','):
     com = command.lower().rstrip().lstrip()
     if com != "":
-        OtherCommands.append(command.lower().rstrip().lstrip())
+        OtherCommands.append(com)
+
+
+OtherCommands_full = []
+for command in config['CONFIG']['OTHERCOMMANDS_FULL'].split(','):
+    com = command.lower().rstrip().lstrip()
+    if com != "":
+        OtherCommands_full.append(com)
+
 
 #Get available bankfiles
 BankDict = dict()
@@ -287,8 +306,13 @@ def pingsAndMessages():
                 if GMActiveFull == False:
                     sendMessage(s,'/me Full game integration inactive')
                 else:
-                    response = sendGameMessage('spawn', following_words,user) 
-                    print('unit spawned:',following_words)
+                    unit = following_words.split(' ')[0]
+                    if unit.lower() in BannedUnits:
+                        sendMessage(s,f'/me Spawning {unit} is prohibited!')
+                    else:
+                        response = sendGameMessage('spawn', following_words,user) 
+                        print('unit spawned:',following_words)
+
 
 
             if "!resources" == first_word:
@@ -313,6 +337,15 @@ def pingsAndMessages():
                 sendGameMessage(first_word[1:], following_words, user) 
 
 
+            if first_word[1:] in OtherCommands_full and first_word[0] == "!": #this is for future command that can be added later
+                sendMessage(s,'/color ' + chatColor)
+                if GMActiveFull == False:
+                    sendMessage(s,'/me Game integration inactive')
+                else:
+                    response = sendGameMessage(first_word[1:], following_words, user)  
+                    print('sending full command')
+
+
             #other commands      
             if "@VeryFluffyBot" in line and not(console(line)):
                 sendMessage(s,'/color ' + chatColor)
@@ -320,7 +353,9 @@ def pingsAndMessages():
 
 
             #general responses configurable in config.ini    
-            after_command = first_word.replace('!','') #strip of "!"
+            if (first_word[0] =='!'):
+                after_command = first_word.replace('!','') #strip of "!"
+
 
             if after_command in config['RESPONSES'].keys() and first_word[0] == "!": 
                 sendMessage(s,'/color ' + chatColor)
