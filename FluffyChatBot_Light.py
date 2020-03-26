@@ -184,19 +184,27 @@ def sendGameMessage(ptype, message, user):
                 break
 
 
-        #start sending messages
+        #delete old commands if there are any
         for child in root: 
             if child.attrib['name'] == 'Commands':
+                root.remove(child)
+                break
 
-                #resend commands
-                for command in UnconfirmedCommands:
-                    child.append((ET.fromstring('<Key name="' + UnconfirmedCommands[command][0] + ' ' + command +' #'+ UnconfirmedCommands[command][1] +'"><Value string="'+ UnconfirmedCommands[command][2] +'" /></Key>')))
-                
-                #send new message
-                CommandNumber += 1
-                child.append((ET.fromstring('<Key name="' + ptype + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>')))
-                UnconfirmedCommands[str(CommandNumber)] = [ptype, user, message]
+        #get unconfirmed commands
+        new_command_string = ""
+        for command in UnconfirmedCommands:
+            new_command_string = new_command_string + '<Key name="' + UnconfirmedCommands[command][0] + ' ' + command +' #'+ UnconfirmedCommands[command][1] +'"><Value string="'+ UnconfirmedCommands[command][2] +'" /></Key>'
+        
+        #get new commmand
+        CommandNumber += 1
+        new_command_string = new_command_string + '<Key name="' + ptype + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>'       
+        UnconfirmedCommands[str(CommandNumber)] = [ptype, user, message]
 
+        #create command section
+        new_command_string = f'<Section name="Commands">{new_command_string}</Section>'
+        root.append((ET.fromstring(new_command_string)))
+        tree.write(BANKFILE)
+        return ""
         tree.write(BANKFILE)
         return ""
         
