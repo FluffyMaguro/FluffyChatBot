@@ -337,7 +337,7 @@ def pingsAndMessages():
                             possible_mutator_names = str(possible_mutator_names)[1:-1].replace("'", "")
                             add_string = f'Did you mean: {possible_mutator_names}?'
 
-                        sendMessage(s,f'/me Incorrect mutator name! {add_string}') 
+                        sendMessage(s,f'/me Incorrect mutator name ({mutator})! {add_string}') 
 
                     #check if the mutator is banned
                     elif mutator in BannedMutators: 
@@ -370,7 +370,7 @@ def pingsAndMessages():
                             possible_unit_names = {i[0].upper()+i[1:] for i in possible_unit_names}
                             possible_unit_names = str(possible_unit_names)[1:-1].replace("'", "")
                             add_string = f'Did you mean: {possible_unit_names}?'
-                        sendMessage(s,f'/me Incorrect unit name! {add_string}')
+                        sendMessage(s,f'/me Incorrect unit name ({unit})! {add_string}')
 
                     #check if not banned
                     elif unit.lower() in BannedUnits:
@@ -434,10 +434,9 @@ def pingsAndMessages():
             if (first_word[0] =='!'):
                 after_command = first_word.replace('!','') #strip of "!"
 
-
-            if after_command in config['RESPONSES'].keys() and first_word[0] == "!": 
-                sendMessage(s,'/color ' + chatColor)
-                sendMessage(s,config['RESPONSES'][after_command])
+                if after_command in config['RESPONSES'].keys() and first_word[0] == "!": 
+                    sendMessage(s,'/color ' + chatColor)
+                    sendMessage(s,config['RESPONSES'][after_command])
 
 
             if user in config['GREETINGS'].keys() and not(user in GreetedUsers):
