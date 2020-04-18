@@ -185,12 +185,14 @@ def sendGameMessage(ptype, message, user):
         #get unconfirmed commands
         new_command_string = ""
         for command in UnconfirmedCommands:
-            new_command_string = new_command_string + '<Key name="' + UnconfirmedCommands[command][0] + ' ' + command +' #'+ UnconfirmedCommands[command][1] +'"><Value string="'+ UnconfirmedCommands[command][2] +'" /></Key>'
+            new_command_string = new_command_string + UnconfirmedCommands[command]
         
         #get new commmand
         CommandNumber += 1
-        new_command_string = new_command_string + '<Key name="' + ptype + ' ' + str(CommandNumber) +' #'+ user +'"><Value string="'+ message +'" /></Key>'       
-        UnconfirmedCommands[str(CommandNumber)] = [ptype, user, message]
+        msg = message.replace('"',"''")
+        command_string = f'<Key name="{ptype} {str(CommandNumber)} #{user}"><Value string="{msg}"/></Key>'   
+        new_command_string = new_command_string + command_string      
+        UnconfirmedCommands[str(CommandNumber)] = command_string
 
         #create command section
         new_command_string = f'<Section name="Commands">{new_command_string}</Section>'
@@ -273,7 +275,7 @@ def pingsAndMessages():
                 if 'full' in following_words:
                     GMActive = True
                     GMActiveFull = True
-                    sendMessage(s,'/me Full game integration. !mutator, !spawn, and !resources commands enabled') #mutators, spawning, resources
+                    sendMessage(s,'/me Full game integration. !mutator, !spawn, !wave and !resources commands enabled') #mutators, spawning, resources
                 elif 'stop' in following_words:
                     GMActive = False
                     GMActiveFull = False
@@ -343,7 +345,7 @@ def pingsAndMessages():
                     elif mutator in BannedMutators: 
                         sendMessage(s,'/me This mutator is banned from use and will not be activated!')  
 
-                    #check user cooldown
+                    #check user cooldowns
                     elif user_on_cooldown(user):
                         pass
 
@@ -428,7 +430,6 @@ def pingsAndMessages():
             if "@VeryFluffyBot" in line and not(console(line)):
                 sendMessage(s,'/color ' + chatColor)
                 sendMessage(s,config['RESPONSES']['RESPONSE'])
-
 
             #general responses configurable in config.ini    
             if (first_word[0] =='!'):
