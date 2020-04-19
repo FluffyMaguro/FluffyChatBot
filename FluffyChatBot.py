@@ -7,6 +7,7 @@ import configparser
 import random
 import datetime
 import difflib
+import html
 
 import threading
 import cv2
@@ -190,6 +191,7 @@ def sendGameMessage(ptype, message, user):
         #get new commmand
         CommandNumber += 1
         msg = message.replace('"',"''")
+        msg = html.escape(msg) # convert & → &amp;
         command_string = f'<Key name="{ptype} {str(CommandNumber)} #{user}"><Value string="{msg}"/></Key>'   
         new_command_string = new_command_string + command_string      
         UnconfirmedCommands[str(CommandNumber)] = command_string
@@ -207,9 +209,10 @@ def sendGameMessage(ptype, message, user):
 
 
 def saveMessage(user,message):
-    with open('ChatLog.txt', 'a') as file:
+    with open('ChatLog.txt', 'ab') as file: #appending as bytes
         time_now = str(datetime.datetime.now())[:-7]
-        file.write('\n({})\t{}:\t{}'.format(time_now,user,message.rstrip()))
+        log = f'\n{time_now}\t{time_now}\t:{message.rstrip()}'.encode('utf-8') #converts into a bytes object containing the UTF-8 representation of the string
+        file.write(log)
 
 
 def pingsAndMessages():
@@ -267,6 +270,7 @@ def pingsAndMessages():
             except:
                 following_words = ''
             print(user + ": " + message.rstrip())
+
 
             ### TWITCH INTEGRATION
 
