@@ -1,13 +1,46 @@
 import os
-import sc2reader
-from UnitNameDict import UnitNameDict
 import traceback
 import sys
+import mpyq
+import json
+
+import sc2reader
+from UnitNameDict import UnitNameDict
 
 amon_forces = ['Amon','Infested','Salamander','Void Shard','Hologram','Moebius', "Ji'nara" ]
 duplicating_units = ['HotSRaptor']
 skip_strings = ['placement', 'placeholder', 'dummy','cocoon']
 revival_types = {'KerriganReviveCocoon':'K5Kerrigan', 'AlarakReviveBeacon':'AlarakCoop','ZagaraReviveCocoon':'ZagaraVoidCoop','DehakaCoopReviveCocoonFootPrint':'DehakaCoop','NovaReviveBeacon':'NovaCoop','ZeratulCoopReviveBeacon':'ZeratulCoop'}
+
+
+class logclass:
+    """ used for logging purposes """
+    def __init__(self,name,showtype,level):
+        self.name = name
+        self.showtype = showtype
+        self.level = level
+
+    def debug(self,message):
+        if self.level > 0:
+            return
+        mtype = ' (D)' if self.showtype else ''
+        print(f'{self.name}{mtype}: {message}\n')
+
+    def info(self,message):
+        if self.level > 1:
+            return
+        mtype = ' (I)' if self.showtype else ''
+        print(f'{self.name}{mtype}: {message}\n')
+
+    def error(self,message):
+        if self.level > 2:
+            return
+        mtype = ' (E)' if self.showtype else ''
+        print(f'{self.name}{mtype}: {message}\n')
+
+
+logger = logclass('RepAnalysis',False,1)
+
 
 
 def contains_skip_strings(pname):
@@ -69,14 +102,18 @@ def analyse_replay(filepath, playernames):
     main_player_name = playernames[0]
     #structure: {unitType : [#created, #died, #kills, #KD]}
     unit_type_dict_maguro = {}
+    unit_type_dict_ally = {}
     unit_type_dict_amon = {}
-    print('Analysing:',filepath)
+    logger.info(f'Analysing: {filepath}')
+
+    #APM
+    archive = mpyq.MPQArchive(file_path)
+    metadata = json.loads(archive.read_file('replay.gamemetadata.json'))
 
     try:
         replay = sc2reader.load_replay(filepath,load_level=3)
-
     except:
-        print(f'ERROR: Failed to load replay ({filepath})')
+        logger.error(f'ERROR: Failed to load replay ({filepath})')
         return ''
 
     is_coop_map = False
@@ -95,6 +132,22 @@ def analyse_replay(filepath, playernames):
         if check_amon_forces(amon_forces,str(replay.person[per])) and per > 2:
             amon_players.append(per)
 
+    ally_player = 1 if main_player==2 else 2
+    ally_player_name = str(replay.person[ally_player]).split(' - ')[1].replace(' (Zerg)', '').replace(' (Terran)', '').replace(' (Protoss)', '')
+
+    logger.debug(f'{main_player_name=} | {main_player=} | {ally_player_name=} | {ally_player=} | {amon_players=}')
+
+    map_data = dict()
+    logger.debug(f'{metadata=}')
+
+    for player in metadata["Players"]:
+        if player["PlayerID"] == main_player:
+            map_data[main_player] = player["APM"]
+        elif player["PlayerID"] == ally_player:
+            map_data[ally_player] = player["APM"]
+
+    logger.debug(f'{map_data=}')
+
     #get result
     game_result = 'Defeat'
     for team in replay.teams:
@@ -105,41 +158,44 @@ def analyse_replay(filepath, playernames):
 
     unit_dict = {} #structure: {unit_id : [UnitType, Owner]}
     DT_HT_Ignore = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] #ignore certain amount of DT/HT deaths after archon is initialized. DT_HT_Ignore[player]
+    killcounts = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     #go through game events
     for event in replay.events:  
         if event.name == 'UnitBornEvent' or event.name == 'UnitInitEvent':
-            #save into unit dict
-
-            owner = None
-            if event.unit_controller != None:
-                if not('Observer' in str(event.unit_controller)):
-                    owner = str(event.unit_controller)[7]
-            if owner == None:
-                continue
-
-            unit_dict[str(event.unit_id)] = [event.unit_type_name, owner]
+            
+            unit_dict[str(event.unit_id)] = [event.unit_type_name, event.control_pid]
+            unit_type = event.unit_type_name
 
             #certain hero units don't die, instead lets track their revival beacons/cocoons. Let's assume they will finish reviving.
-            if event.unit_type_name in revival_types and main_player == event.control_pid and event.second > 0:
-                unit_type_dict_maguro[revival_types[event.unit_type_name]][1] += 1
-                unit_type_dict_maguro[revival_types[event.unit_type_name]][0] += 1
+            if event.unit_type_name in revival_types and event.control_pid in [1,2] and event.second > 0:
+                if event.control_pid == main_player:
+                    unit_type_dict_maguro[revival_types[event.unit_type_name]][1] += 1
+                    unit_type_dict_maguro[revival_types[event.unit_type_name]][0] += 1
+                if event.control_pid == ally_player:
+                    unit_type_dict_ally[revival_types[event.unit_type_name]][1] += 1
+                    unit_type_dict_ally[revival_types[event.unit_type_name]][0] += 1
+
 
             #save stats for units created
-            if main_player == event.control_pid:
-                unit_type = event.unit_type_name
-
+            if event.control_pid in [1,2]:
                 if contains_skip_strings(unit_type):
                     continue
 
-                if unit_type in unit_type_dict_maguro:
-                    unit_type_dict_maguro[unit_type][0] += 1
-                else:
-                    unit_type_dict_maguro[unit_type] = [1,0,0,0]
+                if main_player == event.control_pid:
+                    if unit_type in unit_type_dict_maguro:
+                        unit_type_dict_maguro[unit_type][0] += 1
+                    else:
+                        unit_type_dict_maguro[unit_type] = [1,0,0,0]
+
+                if ally_player == event.control_pid:
+                    if unit_type in unit_type_dict_ally:
+                        unit_type_dict_ally[unit_type][0] += 1
+                    else:
+                        unit_type_dict_ally[unit_type] = [1,0,0,0]
+
 
             if event.control_pid in amon_players:
-                unit_type = event.unit_type_name
-
                 if contains_skip_strings(unit_type):
                     continue
 
@@ -147,6 +203,7 @@ def analyse_replay(filepath, playernames):
                     unit_type_dict_amon[unit_type][0] += 1
                 else:
                     unit_type_dict_amon[unit_type] = [1,0,0,0]
+
 
         #ignore some DT/HT deaths caused by Archon merge
         if event.name == "UnitInitEvent" and event.unit_type_name == "Archon":
@@ -158,33 +215,50 @@ def analyse_replay(filepath, playernames):
                 unit_dict[str(event.unit_id)][0] = str(event.unit_type_name)
 
                 #add to created units
-                unit_type = event.unit_type_name
                 if unit_type in UnitNameDict and old_unit_type in UnitNameDict:
-                    owner = int(unit_dict[str(event.unit_id)][1])
+                    event.control_pid = int(unit_dict[str(event.unit_id)][1])
                     if UnitNameDict[unit_type] != UnitNameDict[old_unit_type]: #don't add into created units if it's just a morph
 
                         # #increase unit type created for controlling player 
-                        if main_player == owner:
+                        if main_player == event.control_pid:
                             if unit_type in unit_type_dict_maguro:
                                 unit_type_dict_maguro[unit_type][0] += 1
                             else:
                                 unit_type_dict_maguro[unit_type] = [1,0,0,0]
 
-                        if owner in amon_players:
+                        if ally_player == event.control_pid:
+                            if unit_type in unit_type_dict_ally:
+                                unit_type_dict_ally[unit_type][0] += 1
+                            else:
+                                unit_type_dict_ally[unit_type] = [1,0,0,0]
+
+                        if event.control_pid in amon_players:
                             if unit_type in unit_type_dict_amon:
                                 unit_type_dict_amon[unit_type][0] += 1
                             else:
                                 unit_type_dict_amon[unit_type] = [1,0,0,0]
                     else:
-                        if main_player == owner and not(unit_type in unit_type_dict_maguro):
-                            unit_type_dict_maguro[unit_type] = [0,0,0,0]    
-                            
-                        if owner in amon_players and not(unit_type in unit_type_dict_amon):
+                        if main_player == event.control_pid and not(unit_type in unit_type_dict_maguro):
+                            unit_type_dict_maguro[unit_type] = [0,0,0,0] 
+
+                        if ally_player == event.control_pid and not(unit_type in unit_type_dict_ally):
+                            unit_type_dict_ally[unit_type] = [0,0,0,0] 
+
+                        if event.control_pid in amon_players and not(unit_type in unit_type_dict_amon):
                             unit_type_dict_amon[unit_type] = [0,0,0,0]    
 
 
         if event.name == 'UnitOwnerChangeEvent' and str(event.unit_id) in unit_dict:
             unit_dict[str(event.unit_id)][1] = str(event.control_pid)
+
+
+        if event.name == 'UnitDiedEvent':
+            try:
+                losing_player = int(unit_dict[str(event.unit_id)][1])
+                if losing_player != event.killing_player_id and not(event.killing_player_id in [1,2] and losing_player in [1,2]): #don't count team kills
+                    killcounts[event.killing_player_id] += 1
+            except:
+                pass
 
 
         if event.name == 'UnitDiedEvent' and str(event.unit_id) in unit_dict:    
@@ -210,6 +284,12 @@ def analyse_replay(filepath, playernames):
                         else:
                             unit_type_dict_maguro[killing_unit_type] = [0,0,1,0]
 
+                    if ally_player == event.killing_player_id:
+                        if killing_unit_type in unit_type_dict_ally:
+                            unit_type_dict_ally[killing_unit_type][2] += 1
+                        else:
+                            unit_type_dict_ally[killing_unit_type] = [0,0,1,0]
+
                     if event.killing_player_id in amon_players:  
                         if killing_unit_type in unit_type_dict_amon:
                             unit_type_dict_amon[killing_unit_type][2] += 1
@@ -222,59 +302,84 @@ def analyse_replay(filepath, playernames):
                     unit_type_dict_maguro[killed_unit_type][0] -= 1
                     continue
 
+                if ally_player == losing_player and event.second > 0 and killed_unit_type in duplicating_units and killed_unit_type == killing_unit_type and losing_player == event.killing_player_id:
+                    unit_type_dict_ally[killed_unit_type][0] -= 1
+                    continue
+
                 # in case of death caused by Archon merge, ignore these kills
                 if (killed_unit_type == 'HighTemplar' or killed_unit_type == 'DarkTemplar') and DT_HT_Ignore[losing_player] > 0:
                     DT_HT_Ignore[losing_player] -= 1
                     continue
 
                 if main_player == losing_player and event.second > 0: #don't count deaths on game init
-                    unit_type_dict_maguro[killed_unit_type][1] += 1
+                    if killed_unit_type in unit_type_dict_maguro:
+                        unit_type_dict_maguro[killed_unit_type][1] += 1
+                    else:
+                        unit_type_dict_maguro[killed_unit_type] = [0,1,0,0]
+
+                if ally_player == losing_player and event.second > 0: #don't count deaths on game init
+                    if killed_unit_type in unit_type_dict_ally:
+                        unit_type_dict_ally[killed_unit_type][1] += 1
+                    else:
+                        unit_type_dict_ally[killed_unit_type] = [0,1,0,0]
 
                 if losing_player in amon_players and event.second > 0:
-                    unit_type_dict_amon[killed_unit_type][1] += 1           
+                    if killed_unit_type in unit_type_dict_amon:
+                        unit_type_dict_amon[killed_unit_type][1] += 1  
+                    else:
+                        unit_type_dict_amon[killing_unit_type] = [0,1,0,0]  
+                               
             except Exception as e:
-                # print('--> Error:',e)
-                # print ('print_exception():')
                 exc_type, exc_value, exc_tb = sys.exc_info()
                 traceback.print_exception(exc_type, exc_value, exc_tb)
                 pass
 
-    # print(unit_type_dict_maguro)
-    # print()
-    # print(unit_type_dict_amon)
+    logger.debug(f'{unit_type_dict_maguro=}')
+    logger.debug(f'{unit_type_dict_ally=}')
+    logger.debug(f'{killcounts=}')
 
 
     #Get messages
     replay_report = f"{game_result}! ({replay.map_name})."
 
-    #Player kills
-    sorted_maguro = {k:v for k,v in sorted(unit_type_dict_maguro.items(), reverse = True, key=lambda item: item[1][2])} #sorts by number of create (0), lost (1), kills (2), K/D (3)
-    sorted_maguro = switch_names(sorted_maguro)
-    temp_string_init = f" {main_player_name}'s most effective units were"
-    temp_string = ''
-    message_count = 0
 
-    maxUnits = 0
-    for key in sorted_maguro:
-        if sorted_maguro[key][2] > 0:
-            maxUnits +=1
+    def playermessage(playername,player,pdict):
 
-    maxUnits = min(maxUnits, 3)
+        #Player kills
+        sorted_dict = {k:v for k,v in sorted(pdict.items(), reverse = True, key=lambda item: item[1][2])} #sorts by number of create (0), lost (1), kills (2), K/D (3)
+        sorted_dict = switch_names(sorted_dict)
+        temp_string = f" {playername}'s ({killcounts[player]} kills, {map_data[player]:.0f} APM) most effective units were"
+        message_count = 0
 
-    for key in sorted_maguro:
-        if sorted_maguro[key][2] > 0 and message_count < maxUnits:
-            message_count +=1
-            if message_count == 1:
-                temp_string = f'{temp_string} {key}: {sorted_maguro[key][2]} kills ({sorted_maguro[key][0]} created/{sorted_maguro[key][1]} lost),' 
-            elif message_count == maxUnits:
-                temp_string = f'{temp_string} and {key}: {sorted_maguro[key][2]} kills ({sorted_maguro[key][0]}/{sorted_maguro[key][1]}).'
-                break
-            else:
-                temp_string = f'{temp_string} {key}: {sorted_maguro[key][2]} kills ({sorted_maguro[key][0]}/{sorted_maguro[key][1]}),'   
+        maxUnits = 0
+        for key in sorted_dict:
+            if sorted_dict[key][2] > 0:
+                maxUnits +=1
 
-    if temp_string != '':
-        temp_string = temp_string[:-1]+'.'
-        replay_report = replay_report + temp_string_init + temp_string
+        maxUnits = min(maxUnits, 3)
+
+        for key in sorted_dict:
+            if sorted_dict[key][2] > 0 and message_count < maxUnits:
+                message_count +=1
+                if message_count == 1:
+                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]} created/{sorted_dict[key][1]} lost),' 
+                elif message_count == maxUnits:
+                    temp_string = f'{temp_string} and {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}).'
+                    break
+                else:
+                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}),' 
+
+        #add comma
+        if temp_string != '':
+            temp_string = temp_string[:-1]+'.'
+
+        if message_count == 0:
+            return ''
+
+        return temp_string  
+
+    replay_report = replay_report + playermessage(main_player_name, main_player, unit_type_dict_maguro) + playermessage(ally_player_name, ally_player, unit_type_dict_ally)
+
 
     #Amon lost
     sorted_amon = {k:v for k,v in sorted(unit_type_dict_amon.items(), reverse = True, key=lambda item: item[1][1])}
@@ -285,7 +390,7 @@ def analyse_replay(filepath, playernames):
     for key in sorted_amon:  
         if sorted_amon[key][1] > 0 and not('droppod' in key.lower()) and not('larva' in key.lower()):
             message_count += 1
-            if message_count > 4:
+            if message_count > 2:
                 temp_string = f'{temp_string} and {sorted_amon[key][1]} {key}s.' 
                 break
             else:   
@@ -317,12 +422,23 @@ def analyse_replay(filepath, playernames):
 
     return replay_report
 
-# file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts/114803619/1-S2-1-4189373/Replays/Multiplayer/[MM] Temple of the Past - Terran (74).SC2Replay'
-# file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts/114803619/1-S2-1-4189373/Replays/Multiplayer/Scythe of Amon (226).SC2Replay'
-# file_path = 'CoA.SC2Replay'
-# file_path = 'CoD.SC2Replay'
 
+#DEBUG
+if __name__ == "__main__":
+    PLAYERNAME = 'Maguro'
 
-# PLAYERNAME = 'Maguro'
-# replay_message = analyse_replay(file_path,[PLAYERNAME])
-# print(replay_message)
+    folder_path = 'C:\\Users\\Maguro\\Desktop\\TEST'
+    file_list = os.listdir(folder_path)
+
+    # for file in file_list:
+    #     file_path = os.path.join(folder_path,file)
+    #     replay_message = analyse_replay(file_path,[PLAYERNAME])
+    #     logger.info(f'{replay_message=}')
+
+    file_path = 'C:\\Users\\Maguro\\Desktop\\TEST\\Void Launch (261).SC2Replay'
+    replay_message = analyse_replay(file_path,[PLAYERNAME])
+    logger.info(f'{replay_message=}')
+
+    
+    
+    
