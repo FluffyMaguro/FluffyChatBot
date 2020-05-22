@@ -75,7 +75,7 @@ BANKFILE = BankDict.get('default',list(BankDict.values())[0]) #default or the fi
 
 
 ### Init some variables
-findingActivated = True
+findingActivated = False
 postCurrent = False
 mutatorsFound = False
 CommandNumber = random.randint(1,1000000) #just add this number to each command, so the same commands don't have the same name
@@ -541,7 +541,6 @@ def FindMutators():
     while True:
         if findingActivated == False: #skip if the function is deactivated via chat command (temporarily)
             time.sleep(INTERVAL)
-            print('//mutator find disabled')
             continue
 
         try:
