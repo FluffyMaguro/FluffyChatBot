@@ -340,7 +340,9 @@ def analyse_replay(filepath, playernames):
 
 
     #Get messages
-    replay_report = f"{game_result}! ({replay.map_name})."
+    total_kills = killcounts[1] + killcounts[2]
+    replay_report = f"{game_result} on {replay.map_name}! {main_player_name} ({100*killcounts[main_player]/total_kills:.0f}% kills, {map_data[main_player]:.0f} APM) & {ally_player_name} ({100*killcounts[ally_player]/total_kills:.0f}% kills, {map_data[ally_player]:.0f} APM)."        
+
 
 
     def playermessage(playername,player,pdict):
@@ -348,7 +350,7 @@ def analyse_replay(filepath, playernames):
         #Player kills
         sorted_dict = {k:v for k,v in sorted(pdict.items(), reverse = True, key=lambda item: item[1][2])} #sorts by number of create (0), lost (1), kills (2), K/D (3)
         sorted_dict = switch_names(sorted_dict)
-        temp_string = f" {playername}'s ({killcounts[player]} kills, {map_data[player]:.0f} APM) most effective units were"
+        temp_string = f" {playername}'s most effective units were"
         message_count = 0
 
         maxUnits = 0
@@ -359,15 +361,15 @@ def analyse_replay(filepath, playernames):
         maxUnits = min(maxUnits, 3)
 
         for key in sorted_dict:
-            if sorted_dict[key][2] > 0 and message_count < maxUnits:
+            if message_count < maxUnits and sorted_dict[key][2]/killcounts[player] > 0.1: #short and for units with > 10% kills
                 message_count +=1
-                if message_count == 1:
-                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]} created/{sorted_dict[key][1]} lost),' 
+                if message_count == 1 and player == main_player:
+                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} - {100*sorted_dict[key][2]/killcounts[player]:.0f}% kills ({sorted_dict[key][0]} created, {sorted_dict[key][1]} lost),' 
                 elif message_count == maxUnits:
-                    temp_string = f'{temp_string} and {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}).'
+                    temp_string = f'{temp_string} and {key}: {sorted_dict[key][2]} - {100*sorted_dict[key][2]/killcounts[player]:.0f}% kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}).'
                     break
                 else:
-                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}),' 
+                    temp_string = f'{temp_string} {key}: {sorted_dict[key][2]} - {100*sorted_dict[key][2]/killcounts[player]:.0f}% kills ({sorted_dict[key][0]}/{sorted_dict[key][1]}),' 
 
         #add comma
         if temp_string != '':
@@ -437,7 +439,7 @@ if __name__ == "__main__":
 
     file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts\\452875987\\2-S2-1-7503439\\Replays\\Multiplayer\\Oblivion Express (19).SC2Replay'
     replay_message = analyse_replay(file_path,[PLAYERNAME])
-    logger.info(f'{replay_message=}')
+    logger.info(f'{replay_message}')
 
     
     

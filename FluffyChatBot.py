@@ -577,17 +577,10 @@ def FindMutators():
         img = pyautogui.screenshot(region=(1810,380, 110, 480))
         img_rgb = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
-        # cv2.imshow("orig image", img_rgb)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-
         #RESIZING (resize screenshot, if yes, lower threshold since accuracy will take a hit)
         if RESIZECOEF != 1:
             img_rgb = cv2.resize(img_rgb,(int(110*RESIZECOEF),int(480*RESIZECOEF)), interpolation = cv2.INTER_AREA)
             threshold = 0.7
-            # cv2.imshow("resized image", img_rgb)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
 
         for entry in entries:
             if entry.is_file() and entry.name.endswith('.png'):
