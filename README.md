@@ -10,7 +10,7 @@ Post on my site: https://www.maguro.one/2020/01/fluffy-chatbot.html
 
 * Post game summary
 
-![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/Summay.png)
+![Summary](https://raw.githubusercontent.com/FluffyMaguro/FluffyChatBot/master/BotReplayAnalysis.png)
 
 * Game integration into my [MM] maps. You can affect the game with several supported commands (!join, !message, !spawn, !mutator, !resources).
 
