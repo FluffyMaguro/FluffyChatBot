@@ -107,13 +107,13 @@ def analyse_replay(filepath, playernames):
     logger.info(f'Analysing: {filepath}')
 
     #APM
-    archive = mpyq.MPQArchive(file_path)
+    archive = mpyq.MPQArchive(filepath)
     metadata = json.loads(archive.read_file('replay.gamemetadata.json'))
 
     try:
         replay = sc2reader.load_replay(filepath,load_level=3)
     except:
-        logger.error(f'ERROR: Failed to load replay ({filepath})')
+        logger.error(f'ERROR: SC2reader failed to load replay ({filepath})')
         return ''
 
     is_coop_map = False
@@ -435,7 +435,7 @@ if __name__ == "__main__":
     #     replay_message = analyse_replay(file_path,[PLAYERNAME])
     #     logger.info(f'{replay_message=}')
 
-    file_path = 'C:\\Users\\Maguro\\Desktop\\TEST\\Void Launch (261).SC2Replay'
+    file_path = 'C:/Users/Maguro/Documents/StarCraft II/Accounts\\452875987\\2-S2-1-7503439\\Replays\\Multiplayer\\Oblivion Express (19).SC2Replay'
     replay_message = analyse_replay(file_path,[PLAYERNAME])
     logger.info(f'{replay_message=}')
 

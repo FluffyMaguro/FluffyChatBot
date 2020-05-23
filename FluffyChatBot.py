@@ -2,13 +2,16 @@ import socket
 import string
 import time
 import os
-import xml.etree.ElementTree as ET
 import configparser
 import random
 import datetime
 import difflib
 import html
+import traceback
+import sys
+import xml.etree.ElementTree as ET
 
+#necessary for full bot
 import threading
 import cv2
 import numpy as np
@@ -515,12 +518,18 @@ def check_replays():
                             replay_message = analyse_replay(file_path,PLAYER_NAMES)
                             if replay_message != '' and not(file in already_opened_replays):
                                 already_opened_replays.append(file)
-                                sendMessage(s,replay_message)
+                                if len(replay_message) > 500: #twitch character limit
+                                    sendMessage(s,'.'.join(replay_message.split('.')[:3])+'.')
+                                    sendMessage(s,'.'.join(replay_message.split('.')[3:])+'.')
+                                else:
+                                    sendMessage(s,replay_message)
                             else:
                                 print(f'ERROR: No output from replay analysis ({file})') 
                             break
-                    except:
-                        print(f'ERROR: Failed at something with replays({file})')                                
+                    except Exception as e:
+                        exc_type, exc_value, exc_tb = sys.exc_info()
+                        traceback.print_exception(exc_type, exc_value, exc_tb)
+
         time.sleep(10)     
 
 
