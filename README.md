@@ -6,7 +6,7 @@ Post on my site: https://www.maguro.one/2020/01/fluffy-chatbot.html
 * Indentifies mutators that are being played and posts the in the chat
 * Calculates mutation difficulty score and equivalent Brutal+ difficulty and posts it into the chat
 
-![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/2019-12-31_183302.png)
+![Summary](https://raw.githubusercontent.com/FluffyMaguro/FluffyChatBot/master/BotMutatorIdentification.png)
 
 * Post game summary
 
