@@ -383,7 +383,11 @@ def pingsAndMessages():
 
                     #enable/disable mutator 
                     else:
-                        print('mutator started:',following_words)
+                        if 'disable' in following_words:
+                            sendMessage(s,f'Disabling {mutator}!')
+                        else:
+                            sendMessage(s,f'Enabling {mutator}!')
+
                         UserCooldown[user] = time.time()
                         sendGameMessage('mutator', following_words,user)
                          
