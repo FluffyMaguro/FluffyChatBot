@@ -1,22 +1,34 @@
 # FluffyChatBot
 
-Post on my site: https://www.maguro.one/2020/01/fluffy-chatbot.html
+This Twitch chat bot connects twitch chat to StarCraft II game enabling viewers to interact witht the streamer directly. It works only on arcade maps that support this – my [MM maps](https://www.maguro.one/p/my-maps.html). Here is a [longer post on my site.](https://www.maguro.one/2020/01/fluffy-chatbot.html)
 
-* Basic bot stuff - configurable responses
-* Indentifies mutators that are being played and posts the in the chat
+The bot has been refactored and mostly incorporated into my [StarCraft II Co-op Overlay](https://github.com/FluffyMaguro/SC2_Coop_overlay). It's generally improved and doesn't require creating new account for a bot. Only image recognition functionality hasn't been ported as it requires cv2 package and is difficult to set up for different screen resolutions.
+
+
+# What the bot can do
+
+* Basic bot stuff - responses, etc.
+* Indentifies mutators that are being played through image recognition and posts them in the chat or as overlay on screen
 * Calculates mutation difficulty score and equivalent Brutal+ difficulty and posts it into the chat
+* Analyses replays and posts game summary in the chat
+* Game integration into my [MM] maps. You can affect the game with several supported commands (!join, !message, !spawn, !mutator, !resources).
+
+# Screenshots
+
+**Viewers joining into the game:**
+
+![Summary](party.jpg)
+
+**Mutator identification through image recognition:**
 
 ![Summary](https://raw.githubusercontent.com/FluffyMaguro/FluffyChatBot/master/BotMutatorIdentification.png)
 
-* Post game summary
+**Post game summary:**
 
 ![Summary](https://raw.githubusercontent.com/FluffyMaguro/FluffyChatBot/master/BotReplayAnalysis.png)
 
-* Game integration into my [MM] maps. You can affect the game with several supported commands (!join, !message, !spawn, !mutator, !resources).
 
-![Summary](https://github.com/FluffyMaguro/FluffyChatBot/blob/master/party.jpg)
 
-Mutator identification would need to be modified to work at different resolutions and screen aspect ratios. I added a lightweight version that supports only basic bot functionality and twitch intergration into my maps.
 
 # How to use the lightweight bot
 
